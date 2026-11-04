@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Activity,
   ArrowLeft,
@@ -12,6 +12,7 @@ import {
   Play,
   Stethoscope,
   Terminal,
+  Trash2,
   Wallet,
   Zap,
 } from "lucide-react";
@@ -74,6 +75,7 @@ function desde(valor) {
 export default function CarregadorDetalhe() {
   const { carregadorId } = useParams();
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const base = `/admin/carregadores/${encodeURIComponent(carregadorId)}`;
   const [carregador, setCarregador] = useState(null);
   const [sessoes, setSessoes] = useState([]);
@@ -153,6 +155,23 @@ export default function CarregadorDetalhe() {
       carregar();
     } catch {
       // Toast global
+    }
+  };
+
+  const excluir = async () => {
+    const ok = await confirmar({
+      titulo: `Excluir "${carregador.nome_local}"?`,
+      texto:
+        "Ele some do painel e para de aceitar conexao. Se ja teve vendas, elas continuam nos relatorios. O mesmo ID pode ser cadastrado de novo depois.",
+      confirmarTexto: "Excluir",
+      perigoso: true,
+    });
+    if (!ok) return;
+    try {
+      await api.delete(base);
+      navigate("/carregadores", { replace: true });
+    } catch {
+      // Toast global (ex.: recarga em andamento)
     }
   };
 
@@ -358,6 +377,15 @@ export default function CarregadorDetalhe() {
           <Button onClick={liberarTeste} disabled={!carregador.online || Boolean(sessao)} className="px-4 py-2 text-sm">
             <Play size={16} /> Liberar teste
           </Button>
+          <button
+            type="button"
+            onClick={excluir}
+            disabled={Boolean(sessao)}
+            title={sessao ? "Encerre a recarga antes de excluir" : "Excluir carregador"}
+            className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-white px-3.5 py-2 text-sm font-semibold text-[var(--color-error)] hover:bg-rose-50 disabled:opacity-45"
+          >
+            <Trash2 size={16} /> Excluir
+          </button>
         </div>
         ) : null}
       </div>
