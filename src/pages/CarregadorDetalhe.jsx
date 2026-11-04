@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Pencil, Play, Plus, Stethoscope, Terminal, Trash2 } from "lucide-react";
+import { ArrowLeft, CircleCheck, CreditCard, Pencil, Play, Plus, Stethoscope, Terminal, Trash2 } from "lucide-react";
 import Swal from "sweetalert2";
 
 import api from "../api/axios";
@@ -43,6 +43,12 @@ function Painel({ titulo, acoes, children }) {
   );
 }
 
+// Mesma conta do backend (mercado_pago_caixa.minutos_por_valor).
+function minutosPorValor(precoValor, precoMinutos, valor) {
+  if (!precoValor || !precoMinutos || valor <= 0) return 0;
+  return Math.floor((valor * precoMinutos) / precoValor + 1e-9);
+}
+
 function Info({ rotulo, children }) {
   return (
     <div>
@@ -66,6 +72,10 @@ export default function CarregadorDetalhe() {
   const [ocpp, setOcpp] = useState({ acao: "GetConfiguration", payload: "{}" });
   const [ocppResposta, setOcppResposta] = useState("");
   const [ocppEnviando, setOcppEnviando] = useState(false);
+  const [preco, setPreco] = useState(null);
+  const [criandoCaixa, setCriandoCaixa] = useState(false);
+  const [valorSimulado, setValorSimulado] = useState("10");
+  const [simulacao, setSimulacao] = useState(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -165,6 +175,8 @@ export default function CarregadorDetalhe() {
         mp_terminal_id: edicao.mp_terminal_id || null,
         connector_id: Number(edicao.connector_id) || 1,
         ativo: edicao.ativo,
+        // Token so vai se digitou um novo (o salvo nunca volta do servidor).
+        ...(edicao.mp_access_token ? { mp_access_token: edicao.mp_access_token.trim() } : {}),
       });
       setEdicao(null);
       carregar();
@@ -194,6 +206,46 @@ export default function CarregadorDetalhe() {
     }
   };
 
+  // Regra de preco: o formulario comeca com o que esta salvo.
+  const precoForm = preco ?? { valor: carregador.preco_valor ?? "", minutos: carregador.preco_minutos ?? "" };
+  const precoValorNum = Number(String(precoForm.valor).replace(",", "."));
+  const precoMinutosNum = Number(precoForm.minutos);
+
+  const salvarPreco = async (event) => {
+    event.preventDefault();
+    try {
+      await api.patch(base, { preco_valor: precoValorNum, preco_minutos: precoMinutosNum });
+      setPreco(null);
+      carregar();
+    } catch {
+      // Toast global
+    }
+  };
+
+  const criarCaixa = async () => {
+    setCriandoCaixa(true);
+    try {
+      await api.post(`${base}/mercado-pago/caixa`);
+      carregar();
+    } catch {
+      // Toast global
+    } finally {
+      setCriandoCaixa(false);
+    }
+  };
+
+  const simularPagamento = async (event) => {
+    event.preventDefault();
+    setSimulacao(null);
+    try {
+      const { data } = await api.post(`${base}/simular-pagamento`, { valor: Number(String(valorSimulado).replace(",", ".")) });
+      setSimulacao(data);
+      carregar();
+    } catch {
+      // Toast global
+    }
+  };
+
   return (
     <div className="space-y-5 p-2 sm:p-4">
       <Link to="/carregadores" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-text-soft)] hover:text-[var(--color-text)]">
@@ -213,7 +265,7 @@ export default function CarregadorDetalhe() {
             <button
               type="button"
               className="pill-button inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold"
-              onClick={() => setEdicao({ ...carregador, mp_terminal_id: carregador.mp_terminal_id || "" })}
+              onClick={() => setEdicao({ ...carregador, mp_terminal_id: carregador.mp_terminal_id || "", mp_access_token: "" })}
             >
               <Pencil size={16} /> Editar
             </button>
@@ -310,6 +362,99 @@ export default function CarregadorDetalhe() {
         </Painel>
       </div>
 
+      <Painel
+        titulo="Maquininha (caixa Mercado Pago)"
+        acoes={carregador.mp_pos_id ? <Badge tom="ok">Caixa criado</Badge> : <Badge tom="aviso">Sem caixa</Badge>}
+      >
+        <p className="mb-4 text-sm text-[var(--color-text-soft)]">
+          Igual a CompactPay: qualquer pagamento aprovado numa maquininha vinculada ao caixa deste carregador libera o tempo pela regra de
+          preco. Se o carro ja estiver carregando, o tempo e&apos; somado.
+        </p>
+        <div className="grid gap-5 xl:grid-cols-3">
+          <form onSubmit={salvarPreco} className="rounded-[22px] border border-[var(--color-border)] bg-white p-4">
+            <div className="font-bold text-[var(--color-text)]">1. Regra de preco</div>
+            <div className="mt-3 flex items-end gap-2">
+              <label className="flex-1">
+                <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Valor (R$)</span>
+                <input className={campoClasse} inputMode="decimal" placeholder="10" value={precoForm.valor} onChange={(e) => setPreco({ ...precoForm, valor: e.target.value })} required />
+              </label>
+              <span className="pb-3 font-bold text-[var(--color-text-soft)]">=</span>
+              <label className="flex-1">
+                <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Minutos</span>
+                <input className={campoClasse} type="number" min={1} max={1440} placeholder="20" value={precoForm.minutos} onChange={(e) => setPreco({ ...precoForm, minutos: e.target.value })} required />
+              </label>
+            </div>
+            {precoValorNum > 0 && precoMinutosNum > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[5, 10, 20, 50].map((v) => (
+                  <span key={v} className="rounded-full bg-[var(--color-bg-muted)] px-3 py-1 text-xs font-semibold text-[var(--color-text)]">
+                    {formatarValor(v)} → {formatarMinutos(minutosPorValor(precoValorNum, precoMinutosNum, v))}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <Button type="submit" className="mt-3 w-full justify-center" disabled={preco === null}>
+              Salvar regra
+            </Button>
+          </form>
+
+          <div className="rounded-[22px] border border-[var(--color-border)] bg-white p-4">
+            <div className="font-bold text-[var(--color-text)]">2. Loja e caixa no Mercado Pago</div>
+            {carregador.mp_pos_id ? (
+              <div className="mt-3 space-y-2 text-sm">
+                <div className="flex items-center gap-2 font-semibold text-[var(--color-success)]">
+                  <CircleCheck size={18} /> Loja e caixa criados
+                </div>
+                <Info rotulo="Loja">{carregador.mp_store_id} · {carregador.mp_store_external_id}</Info>
+                <Info rotulo="Caixa">{carregador.mp_pos_id} · {carregador.mp_pos_external_id}</Info>
+                <p className="rounded-[14px] bg-[var(--color-bg-muted)] p-3 text-[var(--color-text-soft)]">
+                  Agora vincule a maquininha a este caixa: na maquininha (ou no app Mercado Pago), escolha a loja e o caixa
+                  <b> {carregador.nome_local}</b>.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-3 space-y-3 text-sm text-[var(--color-text-soft)]">
+                <p>Cria a loja e o caixa deste carregador na conta do Mercado Pago (igual ao cadastro de maquina da CompactPay).</p>
+                {!carregador.tem_token_mp ? (
+                  <p className="rounded-[14px] bg-amber-50 p-3 text-amber-900">
+                    Falta o token do Mercado Pago: coloque o MP_ACCESS_TOKEN na Render ou o token deste carregador em Editar.
+                  </p>
+                ) : null}
+                <Button onClick={criarCaixa} className="w-full justify-center" disabled={!carregador.tem_token_mp || criandoCaixa}>
+                  <CreditCard size={16} /> {criandoCaixa ? "Criando..." : "Criar loja e caixa"}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={simularPagamento} className="rounded-[22px] border border-[var(--color-border)] bg-white p-4">
+            <div className="font-bold text-[var(--color-text)]">3. Testar sem pagar</div>
+            <p className="mt-1 text-sm text-[var(--color-text-soft)]">
+              Faz de conta que a maquininha aprovou este valor. Passa pela mesma regra e libera o carregador.
+            </p>
+            <label className="mt-3 block">
+              <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Valor pago (R$)</span>
+              <input className={campoClasse} inputMode="decimal" value={valorSimulado} onChange={(e) => setValorSimulado(e.target.value)} required />
+            </label>
+            <Button type="submit" className="mt-3 w-full justify-center" disabled={!carregador.preco_valor || !carregador.online}>
+              Simular pagamento
+            </Button>
+            {!carregador.preco_valor ? <p className="mt-2 text-xs text-[var(--color-text-soft)]">Salve a regra de preco primeiro.</p> : null}
+            {simulacao ? (
+              <div
+                className={`mt-3 rounded-[14px] p-3 text-sm ${
+                  simulacao.estornada ? "bg-amber-50 text-amber-900" : "bg-[var(--color-primary-soft)] text-[var(--color-primary-strong)]"
+                }`}
+              >
+                {simulacao.estornada
+                  ? `Nao liberado (${formatarValor(simulacao.valor)}): carregador ocupado comecando outra recarga. Seria estornado.`
+                  : `${formatarValor(simulacao.valor)} liberou ${formatarMinutos(simulacao.minutos)}. Acompanhe no Status acima.`}
+              </div>
+            ) : null}
+          </form>
+        </div>
+      </Painel>
+
       <Painel titulo="Recargas deste carregador">
         <TabelaSessoes sessoes={sessoes} mostrarCarregador={false} onEncerrar={encerrar} />
       </Painel>
@@ -347,6 +492,18 @@ export default function CarregadorDetalhe() {
                 <input className={campoClasse} value={edicao.mp_terminal_id} onChange={(e) => setEdicao({ ...edicao, mp_terminal_id: e.target.value })} />
               </label>
             </div>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold">Access token do Mercado Pago (opcional)</span>
+              <input
+                className={campoClasse}
+                type="password"
+                autoComplete="off"
+                placeholder={carregador.tem_token_mp ? "Ja configurado (deixe vazio para manter)" : "APP_USR-..."}
+                value={edicao.mp_access_token}
+                onChange={(e) => setEdicao({ ...edicao, mp_access_token: e.target.value })}
+              />
+              <span className="mt-1 block text-xs text-[var(--color-text-soft)]">Vazio usa o MP_ACCESS_TOKEN do servidor.</span>
+            </label>
             <label className="flex items-center gap-3 text-sm font-semibold">
               <input type="checkbox" checked={edicao.ativo} onChange={(e) => setEdicao({ ...edicao, ativo: e.target.checked })} />
               Ativo (desmarcado: recusa a conexao e o totem nao vende)
