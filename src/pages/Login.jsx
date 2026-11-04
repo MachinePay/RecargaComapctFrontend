@@ -108,10 +108,6 @@ export default function Login() {
             <Button type="submit" className="mt-6 w-full justify-center" disabled={entrando}>
               {entrando ? "Entrando..." : "Entrar no painel"}
             </Button>
-
-            <div className="mt-6 rounded-[22px] bg-[var(--color-bg-muted)] px-4 py-4 text-sm leading-6 text-[var(--color-text-soft)]">
-              A tela do motorista fica em <strong>/totem</strong> e nao precisa desta chave.
-            </div>
           </form>
         </section>
       </div>

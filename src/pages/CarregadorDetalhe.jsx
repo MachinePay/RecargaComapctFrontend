@@ -1,16 +1,32 @@
 import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CircleCheck, CreditCard, Pencil, Play, Plus, Stethoscope, Terminal, Trash2 } from "lucide-react";
+import {
+  Activity,
+  ArrowLeft,
+  CircleCheck,
+  Clock,
+  CreditCard,
+  LocateFixed,
+  MapPin,
+  Pencil,
+  Play,
+  Stethoscope,
+  Terminal,
+  Wallet,
+  Zap,
+} from "lucide-react";
 import Swal from "sweetalert2";
 
 import api from "../api/axios";
 import usePolling from "../hooks/usePolling";
 import Badge from "../components/Badge";
 import Button from "../components/Button";
-import Cabecalho from "../components/Cabecalho";
 import LoadingSpinner from "../components/LoadingSpinner";
+import MapaLeaflet from "../components/MapaLeaflet";
 import Modal from "../components/Modal";
 import TabelaSessoes from "../components/TabelaSessoes";
+import { BarraConexao, CartaoResumo, InfoPill, StatusCarregador } from "../components/CarregadorUi";
+import { STATUS_CARREGADOR, lerCoordenadas, qualidadeConexao, statusCarregador, textoConector } from "../utils/carregadores";
 import { confirmar } from "../utils/confirmar";
 import { campoClasse } from "../utils/estilos";
 import { STATUS_SESSAO, formatarDataHora, formatarKwh, formatarMinutos, formatarRelogio, formatarValor } from "../utils/formatos";
@@ -31,11 +47,17 @@ const CATEGORIAS = {
   TESTE: "neutro",
 };
 
-function Painel({ titulo, acoes, children }) {
+// Mesma conta do backend (mercado_pago_caixa.minutos_por_valor).
+function minutosPorValor(precoValor, precoMinutos, valor) {
+  if (!precoValor || !precoMinutos || valor <= 0) return 0;
+  return Math.floor((valor * precoMinutos) / precoValor + 1e-9);
+}
+
+function Painel({ titulo, acoes, children, id, className = "" }) {
   return (
-    <section className="app-panel p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-extrabold tracking-[-0.02em] text-[var(--color-text)]">{titulo}</h2>
+    <section id={id} className={`app-panel p-4 sm:p-5 ${className}`}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-extrabold tracking-[-0.02em] text-[var(--color-text)]">{titulo}</h2>
         {acoes}
       </div>
       {children}
@@ -43,31 +65,21 @@ function Painel({ titulo, acoes, children }) {
   );
 }
 
-// Mesma conta do backend (mercado_pago_caixa.minutos_por_valor).
-function minutosPorValor(precoValor, precoMinutos, valor) {
-  if (!precoValor || !precoMinutos || valor <= 0) return 0;
-  return Math.floor((valor * precoMinutos) / precoValor + 1e-9);
-}
-
-function Info({ rotulo, children }) {
-  return (
-    <div>
-      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-soft)]">{rotulo}</div>
-      <div className="mt-1 font-semibold text-[var(--color-text)]">{children}</div>
-    </div>
-  );
+function desde(valor) {
+  if (!valor) return "-";
+  return formatarDataHora(valor);
 }
 
 export default function CarregadorDetalhe() {
   const { carregadorId } = useParams();
   const base = `/admin/carregadores/${encodeURIComponent(carregadorId)}`;
   const [carregador, setCarregador] = useState(null);
-  const [pacotes, setPacotes] = useState([]);
   const [sessoes, setSessoes] = useState([]);
   const [historico, setHistorico] = useState([]);
+  const [aba, setAba] = useState("recargas");
 
-  const [novoPacote, setNovoPacote] = useState({ minutos: "", valor: "" });
   const [edicao, setEdicao] = useState(null);
+  const [clientes, setClientes] = useState([]);
   const [ocppAberto, setOcppAberto] = useState(false);
   const [ocpp, setOcpp] = useState({ acao: "GetConfiguration", payload: "{}" });
   const [ocppResposta, setOcppResposta] = useState("");
@@ -76,18 +88,17 @@ export default function CarregadorDetalhe() {
   const [criandoCaixa, setCriandoCaixa] = useState(false);
   const [valorSimulado, setValorSimulado] = useState("10");
   const [simulacao, setSimulacao] = useState(null);
-  const [clientes, setClientes] = useState([]);
+  const [local, setLocal] = useState(null);
+  const [localErro, setLocalErro] = useState("");
 
   const carregar = useCallback(async () => {
     try {
-      const [c, p, s, h] = await Promise.all([
+      const [c, s, h] = await Promise.all([
         api.get(base),
-        api.get(`${base}/pacotes`),
         api.get("/admin/sessoes", { params: { carregador_id: carregadorId, limite: 30 } }),
-        api.get(`${base}/historico`, { params: { limite: 60 } }),
+        api.get(`${base}/historico`, { params: { limite: 80 } }),
       ]);
       setCarregador(c.data);
-      setPacotes(p.data);
       setSessoes(s.data);
       setHistorico(h.data);
     } catch {
@@ -99,37 +110,12 @@ export default function CarregadorDetalhe() {
 
   if (!carregador) return <LoadingSpinner className="min-h-[60vh]" />;
 
+  const status = statusCarregador(carregador);
   const sessao = carregador.sessao_ativa;
   const statusSessao = sessao ? STATUS_SESSAO[sessao.status] : null;
+  const conexao = qualidadeConexao(carregador);
 
-  const adicionarPacote = async (event) => {
-    event.preventDefault();
-    const minutos = Number(novoPacote.minutos);
-    try {
-      await api.post(`${base}/pacotes`, {
-        nome: formatarMinutos(minutos),
-        minutos,
-        valor: Number(String(novoPacote.valor).replace(",", ".")),
-        ordem: pacotes.length,
-      });
-      setNovoPacote({ minutos: "", valor: "" });
-      carregar();
-    } catch {
-      // Toast global
-    }
-  };
-
-  const removerPacote = async (pacote) => {
-    const ok = await confirmar({ titulo: `Remover o pacote de ${formatarMinutos(pacote.minutos)}?`, perigoso: true, confirmarTexto: "Remover" });
-    if (!ok) return;
-    try {
-      await api.delete(`/admin/pacotes/${pacote.id}`);
-      carregar();
-    } catch {
-      // Toast global
-    }
-  };
-
+  // ---- Acoes -----------------------------------------------------------
   const encerrar = async (alvo) => {
     const ok = await confirmar({
       titulo: `Encerrar a recarga #${alvo.id}?`,
@@ -168,12 +154,20 @@ export default function CarregadorDetalhe() {
     }
   };
 
+  const abrirEdicao = async () => {
+    setEdicao({ nome_local: carregador.nome_local, connector_id: carregador.connector_id, ativo: carregador.ativo, cliente_id: carregador.cliente_id ?? "" });
+    try {
+      setClientes((await api.get("/admin/clientes")).data);
+    } catch {
+      // Toast global
+    }
+  };
+
   const salvarEdicao = async (event) => {
     event.preventDefault();
     try {
       await api.patch(base, {
         nome_local: edicao.nome_local,
-        mp_terminal_id: edicao.mp_terminal_id || null,
         connector_id: Number(edicao.connector_id) || 1,
         ativo: edicao.ativo,
         cliente_id: edicao.cliente_id ? Number(edicao.cliente_id) : null,
@@ -206,7 +200,7 @@ export default function CarregadorDetalhe() {
     }
   };
 
-  // Regra de preco: o formulario comeca com o que esta salvo.
+  // ---- Venda na maquininha ----------------------------------------------
   const precoForm = preco ?? { valor: carregador.preco_valor ?? "", minutos: carregador.preco_minutos ?? "" };
   const precoValorNum = Number(String(precoForm.valor).replace(",", "."));
   const precoMinutosNum = Number(precoForm.minutos);
@@ -246,240 +240,307 @@ export default function CarregadorDetalhe() {
     }
   };
 
+  // ---- Localizacao ------------------------------------------------------
+  const localForm = local ?? {
+    texto: carregador.latitude != null ? `${carregador.latitude}, ${carregador.longitude}` : "",
+    endereco: carregador.endereco || "",
+  };
+  const coordenadas = lerCoordenadas(localForm.texto);
+
+  const usarMinhaLocalizacao = () => {
+    setLocalErro("");
+    if (!navigator.geolocation) {
+      setLocalErro("Este navegador nao informa a localizacao.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (pos.coords.accuracy > 150) {
+          setLocalErro(`Localizacao imprecisa (${Math.round(pos.coords.accuracy)} m). Tente no celular, perto do carregador.`);
+          return;
+        }
+        setLocal({ ...localForm, texto: `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}` });
+      },
+      () => setLocalErro("Permissao de localizacao negada."),
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
+  };
+
+  const salvarLocal = async (event) => {
+    event.preventDefault();
+    if (localForm.texto.trim() && !coordenadas) {
+      setLocalErro("Nao entendi a localizacao. Cole \"-23.55, -46.63\" ou um link do Google Maps aberto no navegador.");
+      return;
+    }
+    try {
+      await api.patch(base, {
+        endereco: localForm.endereco.trim() || null,
+        latitude: coordenadas?.latitude ?? null,
+        longitude: coordenadas?.longitude ?? null,
+      });
+      setLocal(null);
+      setLocalErro("");
+      carregar();
+    } catch {
+      // Toast global
+    }
+  };
+
+  const pontoMapa = coordenadas
+    ? [{ id: carregador.id_hardware, ...coordenadas, cor: STATUS_CARREGADOR[status].cor, titulo: carregador.nome_local }]
+    : [];
+
   return (
-    <div className="space-y-5 p-2 sm:p-4">
+    <div className="space-y-4 p-2 sm:p-4">
       <Link to="/carregadores" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-text-soft)] hover:text-[var(--color-text)]">
         <ArrowLeft size={16} /> Carregadores
       </Link>
-      <Cabecalho
-        etiqueta={carregador.id_hardware}
-        titulo={carregador.nome_local}
-        acoes={
-          <>
-            <Link
-              to={`/diagnostico?carregador=${encodeURIComponent(carregador.id_hardware)}`}
-              className="pill-button inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold"
-            >
-              <Stethoscope size={16} /> Diagnostico
-            </Link>
-            <button
-              type="button"
-              className="pill-button inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold"
-              onClick={async () => {
-                setEdicao({ ...carregador, mp_terminal_id: carregador.mp_terminal_id || "", cliente_id: carregador.cliente_id ?? "" });
-                try {
-                  setClientes((await api.get("/admin/clientes")).data);
-                } catch {
-                  // Toast global
-                }
-              }}
-            >
-              <Pencil size={16} /> Editar
-            </button>
-            <button
-              type="button"
-              className="pill-button inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold"
-              onClick={() => setOcppAberto(true)}
-              disabled={!carregador.online}
-            >
-              <Terminal size={16} /> Comando OCPP
-            </button>
-            <Button onClick={liberarTeste} disabled={!carregador.online || Boolean(sessao)}>
-              <Play size={16} /> Liberar teste
-            </Button>
-          </>
-        }
-      />
 
-      <div className="grid gap-5 xl:grid-cols-[1.2fr_1fr]">
-        <Painel titulo="Status">
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-            <Info rotulo="Conexao">
-              <Badge tom={carregador.online ? "ok" : "erro"}>{carregador.online ? "Online" : "Offline"}</Badge>
-            </Info>
-            <Info rotulo="Conector">
-              <Badge tom={carregador.erro_conector ? "erro" : "neutro"}>{carregador.status_conector || "-"}</Badge>
-              {carregador.erro_conector ? <div className="text-xs text-[var(--color-error)]">{carregador.erro_conector}</div> : null}
-            </Info>
-            <Info rotulo="Ultimo sinal">{formatarDataHora(carregador.ultimo_sinal)}</Info>
-            <Info rotulo="Modelo">{[carregador.vendor, carregador.modelo].filter(Boolean).join(" ") || "-"}</Info>
-            <Info rotulo="Firmware">{carregador.firmware_version || "-"}</Info>
-            <Info rotulo="Point (MP)">{carregador.mp_terminal_id || "Nao vinculada"}</Info>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-3xl font-extrabold tracking-[-0.04em] text-[var(--color-text)]">{carregador.nome_local}</h1>
+            <StatusCarregador status={status} />
+            {!carregador.ativo ? <Badge tom="erro">Inativo</Badge> : null}
           </div>
+          <div className="mt-1 text-sm text-[var(--color-text-soft)]">
+            <span className="font-mono">{carregador.id_hardware}</span>
+            {carregador.cliente_nome ? ` · ${carregador.cliente_nome}` : " · sem cliente"}
+            {carregador.endereco ? ` · ${carregador.endereco}` : ""}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to={`/diagnostico?carregador=${encodeURIComponent(carregador.id_hardware)}`}
+            className="pill-button inline-flex items-center gap-2 px-3.5 py-2 text-sm font-semibold"
+          >
+            <Stethoscope size={16} /> Diagnostico
+          </Link>
+          <button type="button" className="pill-button inline-flex items-center gap-2 px-3.5 py-2 text-sm font-semibold" onClick={abrirEdicao}>
+            <Pencil size={16} /> Editar
+          </button>
+          <button
+            type="button"
+            className="pill-button inline-flex items-center gap-2 px-3.5 py-2 text-sm font-semibold"
+            onClick={() => setOcppAberto(true)}
+            disabled={!carregador.online}
+          >
+            <Terminal size={16} /> OCPP
+          </button>
+          <Button onClick={liberarTeste} disabled={!carregador.online || Boolean(sessao)} className="px-4 py-2 text-sm">
+            <Play size={16} /> Liberar teste
+          </Button>
+        </div>
+      </div>
 
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <CartaoResumo rotulo="Hoje" valor={formatarValor(carregador.faturamento_hoje)} ajuda={`${carregador.vendas_hoje || 0} venda(s)`} Icone={Wallet} destaque />
+        <CartaoResumo rotulo="Recargas hoje" valor={carregador.recargas_hoje || 0} ajuda={formatarKwh(carregador.energia_hoje_kwh)} Icone={Zap} />
+        <CartaoResumo rotulo="Conexao" valor={conexao.texto} ajuda={`${carregador.quedas_hoje || 0} queda(s) hoje`} Icone={Activity} />
+        <CartaoResumo rotulo="Ultimo sinal" valor={carregador.ultimo_sinal ? formatarDataHora(carregador.ultimo_sinal).slice(6) : "-"} ajuda={formatarDataHora(carregador.ultimo_sinal).slice(0, 5)} Icone={Clock} />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
+        <Painel titulo="Agora">
           {sessao ? (
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-[22px] bg-[var(--color-bg-muted)] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] bg-[linear-gradient(135deg,#eff6ff_0%,#dbeafe_100%)] p-4">
               <div>
                 <Badge tom={statusSessao?.tom}>{statusSessao?.texto || sessao.status}</Badge>
                 <div className="mt-2 text-sm text-[var(--color-text-soft)]">
-                  Recarga #{sessao.id} · {sessao.minutos_pagos ? `${sessao.minutos_pagos} min pagos` : "livre (RFID)"} ·{" "}
-                  {formatarKwh(sessao.energia_kwh)}
+                  Recarga #{sessao.id} · {sessao.minutos_pagos ? `${formatarMinutos(sessao.minutos_pagos)} pagos` : "livre (RFID)"} · {formatarKwh(sessao.energia_kwh)}
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 {sessao.segundos_restantes != null ? (
-                  <span className="text-3xl font-extrabold tabular-nums text-[var(--color-primary-strong)]">
-                    {formatarRelogio(sessao.segundos_restantes)}
-                  </span>
+                  <span className="text-4xl font-extrabold tabular-nums text-blue-700">{formatarRelogio(sessao.segundos_restantes)}</span>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => encerrar(sessao)}
-                  className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-[var(--color-error)] hover:bg-rose-100"
+                  className="rounded-full border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-[var(--color-error)] hover:bg-rose-50"
                 >
-                  Encerrar agora
+                  Encerrar
                 </button>
               </div>
             </div>
           ) : (
-            <div className="mt-5 rounded-[22px] bg-[var(--color-bg-muted)] p-4 text-sm text-[var(--color-text-soft)]">
-              Nenhuma recarga em andamento.
+            <div className="rounded-[20px] bg-[var(--color-bg-muted)] px-4 py-3 text-sm text-[var(--color-text-soft)]">
+              {carregador.online ? "Livre, esperando um pagamento." : "Offline: nao vende ate reconectar."}
             </div>
           )}
-        </Painel>
-
-        <Painel titulo="Pacotes de tempo">
-          <ul className="space-y-2">
-            {pacotes.map((p) => (
-              <li key={p.id} className="flex items-center justify-between rounded-[18px] border border-[var(--color-border)] bg-white px-4 py-3">
-                <span className="font-bold text-[var(--color-text)]">{formatarMinutos(p.minutos)}</span>
-                <span className="flex items-center gap-3">
-                  <span className="font-semibold text-[var(--color-primary-strong)]">{formatarValor(p.valor)}</span>
-                  <button type="button" onClick={() => removerPacote(p)} className="text-[var(--color-text-soft)] hover:text-[var(--color-error)]" aria-label="Remover pacote">
-                    <Trash2 size={16} />
-                  </button>
-                </span>
-              </li>
-            ))}
-            {pacotes.length === 0 ? <li className="text-sm text-[var(--color-text-soft)]">Sem pacotes: o totem nao consegue vender.</li> : null}
-          </ul>
-          <form onSubmit={adicionarPacote} className="mt-4 flex flex-wrap items-end gap-2">
-            <label className="min-w-[110px] flex-1">
-              <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Minutos</span>
-              <input className={campoClasse} type="number" min={1} max={1440} value={novoPacote.minutos} onChange={(e) => setNovoPacote({ ...novoPacote, minutos: e.target.value })} required />
-            </label>
-            <label className="min-w-[110px] flex-1">
-              <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Valor (R$)</span>
-              <input className={campoClasse} inputMode="decimal" value={novoPacote.valor} onChange={(e) => setNovoPacote({ ...novoPacote, valor: e.target.value })} placeholder="10,00" required />
-            </label>
-            <Button type="submit">
-              <Plus size={16} /> Adicionar
-            </Button>
-          </form>
-        </Painel>
-      </div>
-
-      <Painel
-        titulo="Maquininha (caixa Mercado Pago)"
-        acoes={carregador.mp_pos_id ? <Badge tom="ok">Caixa criado</Badge> : <Badge tom="aviso">Sem caixa</Badge>}
-      >
-        <p className="mb-4 text-sm text-[var(--color-text-soft)]">
-          Igual a CompactPay: qualquer pagamento aprovado numa maquininha vinculada ao caixa deste carregador libera o tempo pela regra de
-          preco. Se o carro ja estiver carregando, o tempo e&apos; somado.
-        </p>
-        <div className="grid gap-5 xl:grid-cols-3">
-          <form onSubmit={salvarPreco} className="rounded-[22px] border border-[var(--color-border)] bg-white p-4">
-            <div className="font-bold text-[var(--color-text)]">1. Regra de preco</div>
-            <div className="mt-3 flex items-end gap-2">
-              <label className="flex-1">
-                <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Valor (R$)</span>
-                <input className={campoClasse} inputMode="decimal" placeholder="10" value={precoForm.valor} onChange={(e) => setPreco({ ...precoForm, valor: e.target.value })} required />
-              </label>
-              <span className="pb-3 font-bold text-[var(--color-text-soft)]">=</span>
-              <label className="flex-1">
-                <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Minutos</span>
-                <input className={campoClasse} type="number" min={1} max={1440} placeholder="20" value={precoForm.minutos} onChange={(e) => setPreco({ ...precoForm, minutos: e.target.value })} required />
-              </label>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-3">
+            <InfoPill rotulo="Conector">
+              {textoConector(carregador)}
+              {carregador.erro_conector ? <span className="text-[var(--color-error)]"> · {carregador.erro_conector}</span> : null}
+            </InfoPill>
+            <div className="rounded-[14px] bg-[var(--color-bg-muted)] px-3 py-2">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-soft)]">Conexao</div>
+              <BarraConexao carregador={carregador} compacto />
             </div>
-            {precoValorNum > 0 && precoMinutosNum > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {[5, 10, 20, 50].map((v) => (
-                  <span key={v} className="rounded-full bg-[var(--color-bg-muted)] px-3 py-1 text-xs font-semibold text-[var(--color-text)]">
-                    {formatarValor(v)} → {formatarMinutos(minutosPorValor(precoValorNum, precoMinutosNum, v))}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            <Button type="submit" className="mt-3 w-full justify-center" disabled={preco === null}>
-              Salvar regra
+            <InfoPill rotulo="Online desde">{desde(carregador.online_desde)}</InfoPill>
+            <InfoPill rotulo="IP">{carregador.ip || "-"}</InfoPill>
+            <InfoPill rotulo="Modelo">{[carregador.vendor, carregador.modelo].filter(Boolean).join(" ") || "-"}</InfoPill>
+            <InfoPill rotulo="Firmware">{carregador.firmware_version || "-"}</InfoPill>
+          </div>
+        </Painel>
+
+        <Painel
+          titulo="Venda na maquininha"
+          acoes={carregador.mp_pos_id ? <Badge tom="ok">Caixa pronto</Badge> : <Badge tom="aviso">Sem caixa</Badge>}
+        >
+          <form onSubmit={salvarPreco} className="flex flex-wrap items-end gap-2">
+            <label className="w-[110px]">
+              <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Valor (R$)</span>
+              <input className={`${campoClasse} py-2`} inputMode="decimal" placeholder="10" value={precoForm.valor} onChange={(e) => setPreco({ ...precoForm, valor: e.target.value })} required />
+            </label>
+            <span className="pb-2 font-bold text-[var(--color-text-soft)]">=</span>
+            <label className="w-[110px]">
+              <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Minutos</span>
+              <input className={`${campoClasse} py-2`} type="number" min={1} max={1440} placeholder="20" value={precoForm.minutos} onChange={(e) => setPreco({ ...precoForm, minutos: e.target.value })} required />
+            </label>
+            <Button type="submit" className="px-4 py-2 text-sm" disabled={preco === null}>
+              Salvar preco
             </Button>
           </form>
+          {precoValorNum > 0 && precoMinutosNum > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {[5, 10, 20, 50].map((v) => (
+                <span key={v} className="rounded-full bg-[var(--color-bg-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text)]">
+                  {formatarValor(v)} → {formatarMinutos(minutosPorValor(precoValorNum, precoMinutosNum, v))}
+                </span>
+              ))}
+            </div>
+          ) : null}
 
-          <div className="rounded-[22px] border border-[var(--color-border)] bg-white p-4">
-            <div className="font-bold text-[var(--color-text)]">2. Loja e caixa no Mercado Pago</div>
+          <div className="mt-4 border-t border-[var(--color-border)] pt-3 text-sm">
             {carregador.mp_pos_id ? (
-              <div className="mt-3 space-y-2 text-sm">
+              <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold text-[var(--color-success)]">
-                  <CircleCheck size={18} /> Loja e caixa criados
+                  <CircleCheck size={16} /> Loja {carregador.mp_store_id} · Caixa {carregador.mp_pos_external_id}
                 </div>
-                <Info rotulo="Loja">{carregador.mp_store_id} · {carregador.mp_store_external_id}</Info>
-                <Info rotulo="Caixa">{carregador.mp_pos_id} · {carregador.mp_pos_external_id}</Info>
-                <p className="rounded-[14px] bg-[var(--color-bg-muted)] p-3 text-[var(--color-text-soft)]">
-                  Agora vincule a maquininha a este caixa: na maquininha (ou no app Mercado Pago), escolha a loja e o caixa
-                  <b> {carregador.nome_local}</b>.
+                <p className="text-xs text-[var(--color-text-soft)]">
+                  Vincule a maquininha a esta loja e caixa ({carregador.nome_local}). Qualquer pagamento aprovado nela libera o tempo; com o carro carregando, soma.
                 </p>
               </div>
             ) : (
-              <div className="mt-3 space-y-3 text-sm text-[var(--color-text-soft)]">
-                <p>Cria a loja e o caixa deste carregador na conta do Mercado Pago (igual ao cadastro de maquina da CompactPay).</p>
-                {!carregador.tem_token_mp ? (
-                  <p className="rounded-[14px] bg-amber-50 p-3 text-amber-900">
-                    Falta a conta do Mercado Pago: cadastre o dono em Clientes, com o Access Token, e escolha o cliente em Editar.
-                  </p>
-                ) : null}
-                <Button onClick={criarCaixa} className="w-full justify-center" disabled={!carregador.tem_token_mp || criandoCaixa}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[var(--color-text-soft)]">
+                  {carregador.tem_token_mp ? "Crie a loja e o caixa na conta do cliente." : "Escolha um cliente com token do Mercado Pago (Editar)."}
+                </span>
+                <Button onClick={criarCaixa} className="px-4 py-2 text-sm" disabled={!carregador.tem_token_mp || criandoCaixa}>
                   <CreditCard size={16} /> {criandoCaixa ? "Criando..." : "Criar loja e caixa"}
                 </Button>
               </div>
             )}
           </div>
 
-          <form onSubmit={simularPagamento} className="rounded-[22px] border border-[var(--color-border)] bg-white p-4">
-            <div className="font-bold text-[var(--color-text)]">3. Testar sem pagar</div>
-            <p className="mt-1 text-sm text-[var(--color-text-soft)]">
-              Faz de conta que a maquininha aprovou este valor. Passa pela mesma regra e libera o carregador.
-            </p>
-            <label className="mt-3 block">
-              <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Valor pago (R$)</span>
-              <input className={campoClasse} inputMode="decimal" value={valorSimulado} onChange={(e) => setValorSimulado(e.target.value)} required />
+          <form onSubmit={simularPagamento} className="mt-3 flex flex-wrap items-end gap-2 border-t border-[var(--color-border)] pt-3">
+            <label className="w-[130px]">
+              <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Simular pagamento</span>
+              <input className={`${campoClasse} py-2`} inputMode="decimal" value={valorSimulado} onChange={(e) => setValorSimulado(e.target.value)} required />
             </label>
-            <Button type="submit" className="mt-3 w-full justify-center" disabled={!carregador.preco_valor || !carregador.online}>
-              Simular pagamento
-            </Button>
-            {!carregador.preco_valor ? <p className="mt-2 text-xs text-[var(--color-text-soft)]">Salve a regra de preco primeiro.</p> : null}
+            <button
+              type="submit"
+              className="pill-button px-4 py-2 text-sm font-semibold disabled:opacity-45"
+              disabled={!carregador.preco_valor || !carregador.online}
+              title={!carregador.preco_valor ? "Salve o preco primeiro" : !carregador.online ? "Carregador offline" : ""}
+            >
+              Testar sem pagar
+            </button>
             {simulacao ? (
-              <div
-                className={`mt-3 rounded-[14px] p-3 text-sm ${
-                  simulacao.estornada ? "bg-amber-50 text-amber-900" : "bg-[var(--color-primary-soft)] text-[var(--color-primary-strong)]"
-                }`}
-              >
-                {simulacao.estornada
-                  ? `Nao liberado (${formatarValor(simulacao.valor)}): carregador ocupado comecando outra recarga. Seria estornado.`
-                  : `${formatarValor(simulacao.valor)} liberou ${formatarMinutos(simulacao.minutos)}. Acompanhe no Status acima.`}
-              </div>
+              <span className={`text-sm font-semibold ${simulacao.estornada ? "text-[var(--color-warning)]" : "text-[var(--color-success)]"}`}>
+                {simulacao.estornada ? "Nao liberou (carregador ocupado)" : `${formatarValor(simulacao.valor)} liberou ${formatarMinutos(simulacao.minutos)}`}
+              </span>
             ) : null}
           </form>
+        </Painel>
+      </div>
+
+      <Painel
+        id="localizacao"
+        titulo="Localizacao"
+        acoes={carregador.latitude != null ? (
+          <Link to={`/mapa?carregador=${encodeURIComponent(carregador.id_hardware)}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-primary)]">
+            <MapPin size={15} /> Ver no mapa geral
+          </Link>
+        ) : null}
+      >
+        <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
+          <form onSubmit={salvarLocal} className="space-y-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Endereco (texto)</span>
+              <input className={`${campoClasse} py-2`} placeholder="Rua, numero - bairro, cidade" value={localForm.endereco} onChange={(e) => setLocal({ ...localForm, endereco: e.target.value })} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Coordenadas ou link do Google Maps</span>
+              <input
+                className={`${campoClasse} py-2 font-mono text-sm`}
+                placeholder="-23.5505, -46.6333"
+                value={localForm.texto}
+                onChange={(e) => {
+                  setLocal({ ...localForm, texto: e.target.value });
+                  setLocalErro("");
+                }}
+              />
+            </label>
+            <p className="text-xs text-[var(--color-text-soft)]">Ou clique no mapa no ponto exato do carregador.</p>
+            {localErro ? <p className="text-sm text-[var(--color-error)]">{localErro}</p> : null}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={usarMinhaLocalizacao} className="pill-button inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold">
+                <LocateFixed size={16} /> Usar minha localizacao
+              </button>
+              <Button type="submit" className="px-4 py-2 text-sm" disabled={local === null}>
+                Salvar local
+              </Button>
+            </div>
+          </form>
+          <div className="overflow-hidden rounded-[24px] border border-[var(--color-border)]">
+            <MapaLeaflet
+              pontos={pontoMapa}
+              className="h-[260px]"
+              onClicarMapa={(lat, lng) => {
+                setLocal({ ...localForm, texto: `${lat.toFixed(6)}, ${lng.toFixed(6)}` });
+                setLocalErro("");
+              }}
+            />
+          </div>
         </div>
       </Painel>
 
-      <Painel titulo="Recargas deste carregador">
-        <TabelaSessoes sessoes={sessoes} mostrarCarregador={false} onEncerrar={encerrar} />
-      </Painel>
-
-      <Painel titulo="Historico">
-        <ul className="max-h-[420px] space-y-1 overflow-y-auto text-sm">
-          {historico.map((h, i) => (
-            <li key={`${h.created_at}-${i}`} className="flex flex-wrap items-center gap-3 border-b border-[var(--color-border)] py-2">
-              <span className="w-[120px] shrink-0 tabular-nums text-[var(--color-text-soft)]">{formatarDataHora(h.created_at)}</span>
-              <Badge tom={CATEGORIAS[h.categoria]}>{h.categoria}</Badge>
-              <span className={`min-w-0 flex-1 ${/ALERTA|FALHOU|ATENCAO/.test(h.descricao) ? "font-semibold text-[var(--color-error)]" : ""}`}>
-                {h.descricao}
-              </span>
-              {h.valor ? <span className="font-semibold">{formatarValor(h.valor)}</span> : null}
-            </li>
+      <section className="app-panel p-4 sm:p-5">
+        <div className="mb-3 flex gap-2">
+          {[
+            ["recargas", `Recargas (${sessoes.length})`],
+            ["historico", "Historico"],
+          ].map(([chave, texto]) => (
+            <button
+              key={chave}
+              type="button"
+              onClick={() => setAba(chave)}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+                aba === chave ? "bg-[var(--color-primary)] text-white" : "bg-[var(--color-bg-muted)] text-[var(--color-text-soft)] hover:text-[var(--color-text)]"
+              }`}
+            >
+              {texto}
+            </button>
           ))}
-        </ul>
-      </Painel>
+        </div>
+        {aba === "recargas" ? (
+          <TabelaSessoes sessoes={sessoes} mostrarCarregador={false} onEncerrar={encerrar} />
+        ) : (
+          <ul className="max-h-[420px] overflow-y-auto text-sm">
+            {historico.map((h, i) => (
+              <li key={`${h.created_at}-${i}`} className="flex flex-wrap items-center gap-3 border-b border-[var(--color-border)] py-2">
+                <span className="w-[110px] shrink-0 tabular-nums text-xs text-[var(--color-text-soft)]">{formatarDataHora(h.created_at)}</span>
+                <Badge tom={CATEGORIAS[h.categoria]}>{h.categoria}</Badge>
+                <span className={`min-w-0 flex-1 ${/ALERTA|FALHOU|ATENCAO/.test(h.descricao) ? "font-semibold text-[var(--color-error)]" : ""}`}>{h.descricao}</span>
+                {h.valor ? <span className="font-semibold">{formatarValor(h.valor)}</span> : null}
+              </li>
+            ))}
+            {historico.length === 0 ? <li className="py-6 text-center text-[var(--color-text-soft)]">Nada registrado ainda.</li> : null}
+          </ul>
+        )}
+      </section>
 
       <Modal open={Boolean(edicao)} onClose={() => setEdicao(null)}>
         {edicao ? (
@@ -489,34 +550,28 @@ export default function CarregadorDetalhe() {
               <span className="mb-2 block text-sm font-semibold">Nome do local</span>
               <input className={campoClasse} value={edicao.nome_local} onChange={(e) => setEdicao({ ...edicao, nome_local: e.target.value })} required />
             </label>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold">Cliente (dono)</span>
+                <select className={campoClasse} value={edicao.cliente_id} onChange={(e) => setEdicao({ ...edicao, cliente_id: e.target.value })}>
+                  <option value="">Sem cliente</option>
+                  {clientes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome_empresa}
+                      {c.tem_token_mp ? "" : " (sem token MP)"}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold">Conector</span>
                 <input className={campoClasse} type="number" min={1} value={edicao.connector_id} onChange={(e) => setEdicao({ ...edicao, connector_id: e.target.value })} />
               </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold">Point (terminal_id do MP)</span>
-                <input className={campoClasse} value={edicao.mp_terminal_id} onChange={(e) => setEdicao({ ...edicao, mp_terminal_id: e.target.value })} />
-              </label>
             </div>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold">Cliente (dono)</span>
-              <select className={campoClasse} value={edicao.cliente_id ?? ""} onChange={(e) => setEdicao({ ...edicao, cliente_id: e.target.value })}>
-                <option value="">Sem cliente</option>
-                {clientes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome_empresa}
-                    {c.tem_token_mp ? "" : " (sem token MP)"}
-                  </option>
-                ))}
-              </select>
-              <span className="mt-1 block text-xs text-[var(--color-text-soft)]">
-                Trocar de cliente apaga a loja e o caixa: a conta do Mercado Pago muda e e&apos; preciso criar de novo.
-              </span>
-            </label>
+            <p className="text-xs text-[var(--color-text-soft)]">Trocar de cliente apaga a loja e o caixa: a conta do Mercado Pago muda e e&apos; preciso criar de novo.</p>
             <label className="flex items-center gap-3 text-sm font-semibold">
               <input type="checkbox" checked={edicao.ativo} onChange={(e) => setEdicao({ ...edicao, ativo: e.target.checked })} />
-              Ativo (desmarcado: recusa a conexao e o totem nao vende)
+              Ativo (desmarcado: recusa a conexao e nao vende)
             </label>
             <div className="flex gap-3 pt-2">
               <button type="button" className="pill-button flex-1 px-5 py-3 font-semibold" onClick={() => setEdicao(null)}>
@@ -542,7 +597,9 @@ export default function CarregadorDetalhe() {
               onChange={(e) => setOcpp({ acao: e.target.value, payload: JSON.stringify(COMANDOS_OCPP[e.target.value], null, 2) })}
             >
               {Object.keys(COMANDOS_OCPP).map((acao) => (
-                <option key={acao} value={acao}>{acao}</option>
+                <option key={acao} value={acao}>
+                  {acao}
+                </option>
               ))}
             </select>
           </label>
@@ -553,9 +610,7 @@ export default function CarregadorDetalhe() {
           <Button type="submit" className="w-full justify-center" disabled={ocppEnviando}>
             {ocppEnviando ? "Aguardando o carregador..." : "Enviar"}
           </Button>
-          {ocppResposta ? (
-            <pre className="max-h-[300px] overflow-auto rounded-[18px] bg-[#0f1f15] p-4 text-xs text-emerald-100">{ocppResposta}</pre>
-          ) : null}
+          {ocppResposta ? <pre className="max-h-[300px] overflow-auto rounded-[18px] bg-[#0f1f15] p-4 text-xs text-emerald-100">{ocppResposta}</pre> : null}
         </form>
       </Modal>
     </div>

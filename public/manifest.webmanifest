@@ -1,8 +1,8 @@
 {
   "name": "CompactPay Recarga",
   "short_name": "Recarga",
-  "start_url": "/totem",
-  "display": "fullscreen",
+  "start_url": "/dashboard",
+  "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#1f7a4c",

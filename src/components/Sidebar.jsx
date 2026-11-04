@@ -1,4 +1,4 @@
-import { BatteryCharging, Building2, Home, LogOut, Menu, MonitorSmartphone, PlugZap, Stethoscope, Tablet, X } from "lucide-react";
+import { BatteryCharging, Building2, Home, LogOut, Map, Menu, PlugZap, Stethoscope, X } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
@@ -29,6 +29,11 @@ export default function Sidebar() {
         </NavLink>
       </li>
       <li>
+        <NavLink to="/mapa" className={linkClassName} onClick={closeMobile}>
+          <Map size={20} /> Mapa
+        </NavLink>
+      </li>
+      <li>
         <NavLink to="/clientes" className={linkClassName} onClick={closeMobile}>
           <Building2 size={20} /> Clientes
         </NavLink>
@@ -39,19 +44,9 @@ export default function Sidebar() {
         </NavLink>
       </li>
       <li>
-        <NavLink to="/tablets" className={linkClassName} onClick={closeMobile}>
-          <Tablet size={20} /> Tablets do totem
-        </NavLink>
-      </li>
-      <li>
         <NavLink to="/diagnostico" className={linkClassName} onClick={closeMobile}>
           <Stethoscope size={20} /> Diagnostico
         </NavLink>
-      </li>
-      <li>
-        <a href="/totem" target="_blank" rel="noreferrer" className={linkClassName({ isActive: false })}>
-          <MonitorSmartphone size={20} /> Abrir tela do totem
-        </a>
       </li>
     </ul>
   );
