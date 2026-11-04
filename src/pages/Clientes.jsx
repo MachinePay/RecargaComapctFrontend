@@ -14,10 +14,6 @@ const formVazio = {
   email_contato: "",
   telefone: "",
   documento: "",
-  endereco_rua: "",
-  endereco_numero: "",
-  endereco_cidade: "",
-  endereco_estado: "",
   mp_access_token: "",
   ativo: true,
 };
@@ -65,10 +61,6 @@ export default function Clientes() {
       email_contato: resto.email_contato || null,
       telefone: resto.telefone || null,
       documento: resto.documento || null,
-      endereco_rua: resto.endereco_rua || null,
-      endereco_numero: resto.endereco_numero || null,
-      endereco_cidade: resto.endereco_cidade || null,
-      endereco_estado: resto.endereco_estado || null,
       ativo: resto.ativo,
       // Token so vai quando digitado: o salvo nunca volta do servidor.
       ...(token.trim() ? { mp_access_token: token.trim() } : {}),
@@ -104,7 +96,6 @@ export default function Clientes() {
             <tr>
               <th className="px-4 py-3">Cliente</th>
               <th className="px-4 py-3">Mercado Pago</th>
-              <th className="px-4 py-3">Endereco da loja</th>
               <th className="px-4 py-3">Carregadores</th>
               <th className="px-4 py-3" />
             </tr>
@@ -128,10 +119,6 @@ export default function Clientes() {
                   )}
                   {c.token_mp_prefixo ? <div className="font-mono text-xs text-[var(--color-text-soft)]">{c.token_mp_prefixo}…</div> : null}
                 </td>
-                <td className="px-4 py-3 text-[var(--color-text-soft)]">
-                  {[c.endereco_rua && `${c.endereco_rua}, ${c.endereco_numero || "s/n"}`, c.endereco_cidade, c.endereco_estado].filter(Boolean).join(" · ") ||
-                    "Padrao do servidor"}
-                </td>
                 <td className="px-4 py-3">
                   <Badge tom={c.carregadores ? "ok" : "neutro"}>{c.carregadores}</Badge>
                   {!c.ativo ? <Badge tom="erro">Inativo</Badge> : null}
@@ -145,7 +132,7 @@ export default function Clientes() {
             ))}
             {lista.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-[var(--color-text-soft)]">
+                <td colSpan={4} className="px-4 py-8 text-center text-[var(--color-text-soft)]">
                   Nenhum cliente cadastrado. Cadastre o dono do carregador com o token do Mercado Pago dele.
                 </td>
               </tr>
@@ -192,27 +179,6 @@ export default function Clientes() {
                   onChange={(e) => setForm({ ...form, mp_access_token: e.target.value })}
                 />
               </Campo>
-            </div>
-
-            <div className="rounded-[22px] bg-[var(--color-bg-muted)] p-4">
-              <div className="mb-1 font-bold text-[var(--color-text)]">Endereco da loja</div>
-              <p className="mb-3 text-xs text-[var(--color-text-soft)]">Vai na loja criada no Mercado Pago para cada carregador. Estado por extenso (ex.: Sao Paulo).</p>
-              <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
-                <Campo rotulo="Rua">
-                  <input className={campoClasse} value={form.endereco_rua} onChange={(e) => setForm({ ...form, endereco_rua: e.target.value })} />
-                </Campo>
-                <Campo rotulo="Numero">
-                  <input className={campoClasse} value={form.endereco_numero} onChange={(e) => setForm({ ...form, endereco_numero: e.target.value })} />
-                </Campo>
-              </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Campo rotulo="Cidade">
-                  <input className={campoClasse} value={form.endereco_cidade} onChange={(e) => setForm({ ...form, endereco_cidade: e.target.value })} />
-                </Campo>
-                <Campo rotulo="Estado">
-                  <input className={campoClasse} value={form.endereco_estado} onChange={(e) => setForm({ ...form, endereco_estado: e.target.value })} placeholder="Sao Paulo" />
-                </Campo>
-              </div>
             </div>
 
             {form.id ? (
