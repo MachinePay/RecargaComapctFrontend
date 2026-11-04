@@ -386,7 +386,15 @@ export default function CarregadorDetalhe() {
 
         <Painel
           titulo="Venda na maquininha"
-          acoes={carregador.mp_pos_id ? <Badge tom="ok">Caixa pronto</Badge> : <Badge tom="aviso">Sem caixa</Badge>}
+          acoes={
+            carregador.banco_pagamento === "sumup" ? (
+              <Badge tom={carregador.sumup_reader_id || carregador.sumup_device_code ? "ok" : "aviso"}>SumUp</Badge>
+            ) : carregador.mp_pos_id ? (
+              <Badge tom="ok">Mercado Pago · caixa pronto</Badge>
+            ) : (
+              <Badge tom="aviso">Mercado Pago · sem caixa</Badge>
+            )
+          }
         >
           <form onSubmit={salvarPreco} className="flex flex-wrap items-end gap-2">
             <label className="w-[110px]">
@@ -413,7 +421,17 @@ export default function CarregadorDetalhe() {
           ) : null}
 
           <div className="mt-4 border-t border-[var(--color-border)] pt-3 text-sm">
-            {carregador.mp_pos_id ? (
+            {carregador.banco_pagamento === "sumup" ? (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 font-semibold text-[var(--color-success)]">
+                  <CircleCheck size={16} /> Maquininha SumUp {carregador.sumup_reader_id || carregador.sumup_device_code}
+                </div>
+                <p className="text-xs text-[var(--color-text-soft)]">
+                  O servidor le as vendas da conta SumUp a cada 10 segundos e libera o tempo da venda feita nesta maquininha
+                  {carregador.sumup_usuario ? ` (Pix pelo operador ${carregador.sumup_usuario})` : ""}.
+                </p>
+              </div>
+            ) : carregador.mp_pos_id ? (
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold text-[var(--color-success)]">
                   <CircleCheck size={16} /> Loja {carregador.mp_store_id} · Caixa {carregador.mp_pos_external_id}

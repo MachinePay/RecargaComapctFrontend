@@ -14,7 +14,19 @@ import { STATUS_CARREGADOR, combinaBusca, ordenar, proximaOrdem, statusCarregado
 import { campoClasse } from "../utils/estilos";
 import { formatarDataHora, formatarKwh, formatarRelogio, formatarValor } from "../utils/formatos";
 
-const formVazio = { id_hardware: "", nome_local: "", cliente_id: "", connector_id: 1, gerar_senha_ocpp: false };
+const formVazio = {
+  cliente_id: "",
+  banco_pagamento: "",
+  id_hardware: "",
+  nome_local: "",
+  connector_id: 1,
+  sumup_reader_id: "",
+  sumup_device_code: "",
+  sumup_usuario: "",
+  gerar_senha_ocpp: false,
+};
+
+const NOME_BANCO = { mercado_pago: "Mercado Pago", sumup: "SumUp" };
 
 const CHIPS = [
   { chave: "todos", texto: "Todos" },
@@ -62,6 +74,8 @@ export default function Carregadores() {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(formVazio);
   const [salvando, setSalvando] = useState(false);
+  const [readers, setReaders] = useState({ carregando: false, lista: [], erro: "" });
+  const [pareamento, setPareamento] = useState({ codigo: "", nome: "", enviando: false });
 
   const carregar = useCallback(async () => {
     try {
@@ -91,6 +105,54 @@ export default function Carregadores() {
   const faturamento = lista.reduce((t, c) => t + (c.faturamento_hoje || 0), 0);
   const vendas = lista.reduce((t, c) => t + (c.vendas_hoje || 0), 0);
 
+  const clienteEscolhido = clientes.find((c) => String(c.id) === String(form.cliente_id));
+  const bancosDoCliente = clienteEscolhido?.bancos || [];
+
+  const carregarReaders = async (clienteId) => {
+    setReaders({ carregando: true, lista: [], erro: "" });
+    try {
+      const { data } = await api.get(`/admin/clientes/${clienteId}/sumup/readers`, { silencioso: true });
+      setReaders({ carregando: false, lista: data, erro: "" });
+    } catch (error) {
+      setReaders({ carregando: false, lista: [], erro: error.compactpayMessage || "Nao foi possivel listar as maquininhas" });
+    }
+  };
+
+  const escolherCliente = (clienteId) => {
+    const cliente = clientes.find((c) => String(c.id) === clienteId);
+    const banco = cliente?.bancos?.[0] || "";
+    setForm({ ...form, cliente_id: clienteId, banco_pagamento: banco, sumup_reader_id: "" });
+    if (banco === "sumup" && cliente?.tem_sumup) carregarReaders(clienteId);
+  };
+
+  const escolherBanco = (banco) => {
+    setForm({ ...form, banco_pagamento: banco });
+    if (banco === "sumup" && clienteEscolhido?.tem_sumup) carregarReaders(form.cliente_id);
+  };
+
+  const parear = async () => {
+    setPareamento({ ...pareamento, enviando: true });
+    try {
+      const { data } = await api.post(`/admin/clientes/${form.cliente_id}/sumup/readers`, {
+        pairing_code: pareamento.codigo.trim(),
+        nome: pareamento.nome.trim() || form.nome_local || null,
+      });
+      setPareamento({ codigo: "", nome: "", enviando: false });
+      await carregarReaders(form.cliente_id);
+      setForm((atual) => ({ ...atual, sumup_reader_id: data.id }));
+    } catch {
+      setPareamento((atual) => ({ ...atual, enviando: false }));
+    }
+  };
+
+  const abrirCadastro = () => {
+    const unico = clientes.length === 1 ? String(clientes[0].id) : "";
+    setForm({ ...formVazio, cliente_id: unico, banco_pagamento: unico ? clientes[0].bancos?.[0] || "" : "" });
+    setReaders({ carregando: false, lista: [], erro: "" });
+    if (unico && clientes[0].bancos?.[0] === "sumup" && clientes[0].tem_sumup) carregarReaders(unico);
+    setModal(true);
+  };
+
   const salvar = async (event) => {
     event.preventDefault();
     setSalvando(true);
@@ -98,7 +160,10 @@ export default function Carregadores() {
       const { data } = await api.post("/admin/carregadores", {
         ...form,
         connector_id: Number(form.connector_id) || 1,
-        cliente_id: form.cliente_id ? Number(form.cliente_id) : null,
+        cliente_id: Number(form.cliente_id),
+        sumup_reader_id: form.banco_pagamento === "sumup" ? form.sumup_reader_id || null : null,
+        sumup_device_code: form.banco_pagamento === "sumup" ? form.sumup_device_code || null : null,
+        sumup_usuario: form.banco_pagamento === "sumup" ? form.sumup_usuario || null : null,
       });
       setModal(false);
       setForm(formVazio);
@@ -109,6 +174,8 @@ export default function Carregadores() {
         html: `
           <p>No app do fabricante, configure o OCPP 1.6J com o Charge Point ID <b>${data.id_hardware}</b>.</p>
           <p style="margin-top:8px">O endereco exato e os testes de conexao estao na tela <b>Diagnostico</b>.</p>
+          ${data.banco_pagamento === "mercado_pago" && data.mp_pos_id ? `<p style="margin-top:8px">Loja e caixa criados no Mercado Pago. Vincule a maquininha ao caixa <b>${data.nome_local}</b>.</p>` : ""}
+          ${data.aviso_caixa ? `<p style="margin-top:8px;color:#b7791f"><b>Caixa nao criado:</b> ${data.aviso_caixa}<br/><small>Tente de novo na pagina do carregador.</small></p>` : ""}
           ${data.senha_ocpp ? `<p><b>Senha OCPP:</b> <code>${data.senha_ocpp}</code><br/><small>Anote agora: ela nao aparece de novo.</small></p>` : ""}
         `,
         confirmButtonColor: "#1f7a4c",
@@ -131,7 +198,7 @@ export default function Carregadores() {
             <Link to="/mapa" className="pill-button inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold">
               <Map size={16} /> Mapa
             </Link>
-            <Button onClick={() => setModal(true)}>
+            <Button onClick={abrirCadastro}>
               <Plus size={18} /> Novo carregador
             </Button>
           </>
@@ -245,8 +312,10 @@ export default function Carregadores() {
                   <div className="truncate font-semibold text-[var(--color-text)]">{c.cliente_nome || "Sem cliente"}</div>
                   <div className="truncate text-[11px] text-[var(--color-text-soft)]">{c.endereco || "Sem endereco"}</div>
                   <div className="truncate text-[11px] text-[var(--color-text-soft)]">
-                    {c.preco_valor ? `${formatarValor(c.preco_valor)} = ${c.preco_minutos} min` : "Sem preco"}
-                    {c.mp_pos_id ? " · caixa ok" : ""}
+                    {NOME_BANCO[c.banco_pagamento] || "Mercado Pago"}
+                    {c.banco_pagamento === "sumup" ? (c.sumup_reader_id || c.sumup_device_code ? " · maquininha ok" : "") : c.mp_pos_id ? " · caixa ok" : " · sem caixa"}
+                    {" · "}
+                    {c.preco_valor ? `${formatarValor(c.preco_valor)} = ${c.preco_minutos} min` : "sem preco"}
                   </div>
                 </td>
                 <td className="px-3 py-3">
@@ -330,53 +399,162 @@ export default function Carregadores() {
       <Modal open={modal} onClose={() => setModal(false)}>
         <form onSubmit={salvar} className="space-y-4">
           <h2 className="text-3xl font-extrabold tracking-[-0.04em] text-[var(--color-text)]">Novo carregador</h2>
+
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold">ID do carregador (Charge Point ID)</span>
-            <input
+            <span className="mb-2 block text-sm font-semibold">Vincular ao cliente</span>
+            <select className={campoClasse} value={form.cliente_id} onChange={(e) => escolherCliente(e.target.value)} required>
+              <option value="">Selecione o cliente</option>
+              {clientes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome_empresa}
+                </option>
+              ))}
+            </select>
+            {clientes.length === 0 ? (
+              <span className="mt-1 block text-xs text-[var(--color-warning)]">
+                Cadastre o cliente primeiro em <Link to="/clientes" className="font-semibold underline">Clientes</Link>.
+              </span>
+            ) : null}
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold">Banco do carregador</span>
+            <select
               className={campoClasse}
-              value={form.id_hardware}
-              onChange={(e) => setForm({ ...form, id_hardware: e.target.value.trim() })}
-              placeholder="GD1B751602"
-              pattern="[A-Za-z0-9_\-.]+"
-              title="Letras, numeros, traco, ponto e sublinhado"
+              value={form.banco_pagamento}
+              onChange={(e) => escolherBanco(e.target.value)}
               required
-            />
-            <span className="mt-1 block text-xs text-[var(--color-text-soft)]">
-              Igual ao do app do fabricante. Se nao souber, aponte o carregador para o servidor: o ID aparece no Diagnostico.
-            </span>
+              disabled={!form.cliente_id || bancosDoCliente.length === 0}
+            >
+              <option value="">{form.cliente_id ? "Selecione o banco" : "Selecione um cliente primeiro"}</option>
+              {bancosDoCliente.map((banco) => (
+                <option key={banco} value={banco}>
+                  {NOME_BANCO[banco] || banco}
+                </option>
+              ))}
+            </select>
+            {form.cliente_id && bancosDoCliente.length === 0 ? (
+              <span className="mt-1 block text-xs text-[var(--color-warning)]">Este cliente nao tem banco configurado. Edite em Clientes.</span>
+            ) : null}
           </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold">Nome do local</span>
-            <input className={campoClasse} value={form.nome_local} onChange={(e) => setForm({ ...form, nome_local: e.target.value })} required />
-          </label>
-          <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
+
+          {form.banco_pagamento === "mercado_pago" ? (
+            <div className="rounded-[18px] bg-[var(--color-bg-muted)] p-3 text-sm text-[var(--color-text-soft)]">
+              {clienteEscolhido?.tem_token_mp
+                ? "A loja e o caixa sao criados sozinhos na conta Mercado Pago do cliente. Depois e' so vincular a maquininha ao caixa."
+                : "O cliente esta sem Access Token do Mercado Pago: o carregador e' cadastrado, mas o caixa so pode ser criado depois do token."}
+            </div>
+          ) : null}
+
+          {form.banco_pagamento === "sumup" ? (
+            <div className="space-y-3 rounded-[18px] bg-[var(--color-bg-muted)] p-3">
+              {!clienteEscolhido?.tem_sumup ? (
+                <p className="text-sm text-[var(--color-warning)]">O cliente esta sem a API key da SumUp. Configure em Clientes.</p>
+              ) : (
+                <>
+                  <label className="block">
+                    <span className="mb-1 flex items-center justify-between text-sm font-semibold">
+                      Maquininha SumUp
+                      <button type="button" onClick={() => carregarReaders(form.cliente_id)} className="text-xs font-semibold text-[var(--color-primary)]">
+                        Atualizar lista
+                      </button>
+                    </span>
+                    <select className={campoClasse} value={form.sumup_reader_id} onChange={(e) => setForm({ ...form, sumup_reader_id: e.target.value })}>
+                      <option value="">{readers.carregando ? "Carregando..." : readers.lista.length ? "Selecione a maquininha" : "Nenhuma pareada ainda"}</option>
+                      {readers.lista.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.nome || r.id} {r.serial ? `· ${r.serial}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {readers.erro ? <span className="mt-1 block text-xs text-[var(--color-error)]">{readers.erro}</span> : null}
+                  </label>
+
+                  <div className="rounded-[14px] border border-dashed border-[var(--color-border-strong)] bg-white p-3">
+                    <div className="text-sm font-semibold text-[var(--color-text)]">Parear nova maquininha</div>
+                    <p className="mt-0.5 text-xs text-[var(--color-text-soft)]">
+                      Na maquininha: Conexoes &gt; Wi-Fi &gt; API &gt; Conectar. Digite o codigo que aparecer (vale 5 minutos).
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <input
+                        className={`${campoClasse} w-[140px] py-2 font-mono uppercase`}
+                        placeholder="Codigo"
+                        value={pareamento.codigo}
+                        onChange={(e) => setPareamento({ ...pareamento, codigo: e.target.value })}
+                      />
+                      <input
+                        className={`${campoClasse} min-w-[140px] flex-1 py-2`}
+                        placeholder="Nome (opcional)"
+                        value={pareamento.nome}
+                        onChange={(e) => setPareamento({ ...pareamento, nome: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        onClick={parear}
+                        disabled={pareamento.codigo.trim().length < 4 || pareamento.enviando}
+                        className="pill-button px-4 py-2 text-sm font-semibold disabled:opacity-45"
+                      >
+                        {pareamento.enviando ? "Pareando..." : "Parear"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Ou o serial da maquininha</span>
+                      <input
+                        className={`${campoClasse} py-2 font-mono`}
+                        placeholder="Serial do recibo"
+                        value={form.sumup_device_code}
+                        onChange={(e) => setForm({ ...form, sumup_device_code: e.target.value })}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Operador logado nela (para o Pix)</span>
+                      <input className={`${campoClasse} py-2`} placeholder="Opcional" value={form.sumup_usuario} onChange={(e) => setForm({ ...form, sumup_usuario: e.target.value })} />
+                    </label>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 sm:grid-cols-[1fr_1fr_100px]">
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold">Cliente (dono)</span>
-              <select className={campoClasse} value={form.cliente_id} onChange={(e) => setForm({ ...form, cliente_id: e.target.value })}>
-                <option value="">Sem cliente</option>
-                {clientes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome_empresa}
-                    {c.tem_token_mp ? "" : " (sem token MP)"}
-                  </option>
-                ))}
-              </select>
+              <span className="mb-2 block text-sm font-semibold">ID do carregador</span>
+              <input
+                className={`${campoClasse} font-mono`}
+                value={form.id_hardware}
+                onChange={(e) => setForm({ ...form, id_hardware: e.target.value.trim() })}
+                placeholder="GD1B751602"
+                pattern="[A-Za-z0-9_\-.]+"
+                title="Letras, numeros, traco, ponto e sublinhado"
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold">Nome do local</span>
+              <input className={campoClasse} value={form.nome_local} onChange={(e) => setForm({ ...form, nome_local: e.target.value })} required />
             </label>
             <label className="block">
               <span className="mb-2 block text-sm font-semibold">Conector</span>
               <input className={campoClasse} type="number" min={1} value={form.connector_id} onChange={(e) => setForm({ ...form, connector_id: e.target.value })} />
             </label>
           </div>
-          <label className="flex items-center gap-3 text-sm font-semibold">
-            <input type="checkbox" checked={form.gerar_senha_ocpp} onChange={(e) => setForm({ ...form, gerar_senha_ocpp: e.target.checked })} />
-            Gerar senha OCPP (so se o app do carregador tiver campo de senha)
-          </label>
+          <p className="-mt-2 text-xs text-[var(--color-text-soft)]">
+            O ID e' o do app do fabricante (Platform Pile ID). Se nao souber, aponte o carregador para o servidor: ele aparece no Diagnostico.
+          </p>
+
           <div className="flex gap-3 pt-2">
             <button type="button" className="pill-button flex-1 px-5 py-3 font-semibold" onClick={() => setModal(false)}>
               Cancelar
             </button>
-            <Button type="submit" className="flex-1 justify-center" disabled={salvando}>
-              {salvando ? "Salvando..." : "Cadastrar"}
+            <Button
+              type="submit"
+              className="flex-1 justify-center"
+              disabled={salvando || (form.banco_pagamento === "sumup" && !form.sumup_reader_id && !form.sumup_device_code.trim())}
+            >
+              {salvando ? "Cadastrando..." : "Cadastrar"}
             </Button>
           </div>
         </form>

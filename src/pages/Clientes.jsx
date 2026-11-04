@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { CircleCheck, Pencil, Plus, TriangleAlert } from "lucide-react";
+import { Check, CircleCheck, Pencil, Plus, TriangleAlert } from "lucide-react";
 
 import api from "../api/axios";
 import usePolling from "../hooks/usePolling";
@@ -14,9 +14,18 @@ const formVazio = {
   email_contato: "",
   telefone: "",
   documento: "",
+  cliente_mercado_pago: true,
+  cliente_sumup: false,
   mp_access_token: "",
+  sumup_api_key: "",
   ativo: true,
 };
+
+// Bancos que existem por enquanto (os mesmos que a CompactPay tem prontos).
+const BANCOS = [
+  { chave: "cliente_mercado_pago", nome: "Mercado Pago", ajuda: "Maquininha vinculada a loja/caixa do carregador" },
+  { chave: "cliente_sumup", nome: "SumUp", ajuda: "Maquininha SumUp pareada pela API" },
+];
 
 function Campo({ rotulo, dica, children }) {
   return (
@@ -50,20 +59,28 @@ export default function Clientes() {
       ...formVazio,
       ...Object.fromEntries(Object.entries(cliente).map(([k, v]) => [k, v ?? ""])),
       mp_access_token: "",
+      sumup_api_key: "",
     });
 
   const salvar = async (event) => {
     event.preventDefault();
     setSalvando(true);
-    const { id, mp_access_token: token, ...resto } = form;
+    const { id, mp_access_token: token, sumup_api_key: chaveSumup, ...resto } = form;
+    if (!resto.cliente_mercado_pago && !resto.cliente_sumup) {
+      setSalvando(false);
+      return;
+    }
     const corpo = {
       nome_empresa: resto.nome_empresa,
       email_contato: resto.email_contato || null,
       telefone: resto.telefone || null,
       documento: resto.documento || null,
       ativo: resto.ativo,
-      // Token so vai quando digitado: o salvo nunca volta do servidor.
-      ...(token.trim() ? { mp_access_token: token.trim() } : {}),
+      cliente_mercado_pago: resto.cliente_mercado_pago,
+      cliente_sumup: resto.cliente_sumup,
+      // Credencial so vai quando digitada: a salva nunca volta do servidor.
+      ...(resto.cliente_mercado_pago && token.trim() ? { mp_access_token: token.trim() } : {}),
+      ...(resto.cliente_sumup && chaveSumup.trim() ? { sumup_api_key: chaveSumup.trim() } : {}),
     };
     try {
       if (id) await api.patch(`/admin/clientes/${id}`, corpo);
@@ -82,7 +99,7 @@ export default function Clientes() {
       <Cabecalho
         etiqueta="Cadastro"
         titulo="Clientes"
-        descricao="Donos dos carregadores. Cada um usa a propria conta do Mercado Pago, igual a CompactPay."
+        descricao="Donos dos carregadores. Cada um usa a propria conta do banco (Mercado Pago ou SumUp), igual a CompactPay."
         acoes={
           <Button onClick={() => setForm({ ...formVazio })}>
             <Plus size={18} /> Novo cliente
@@ -95,7 +112,7 @@ export default function Clientes() {
           <thead className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-soft)]">
             <tr>
               <th className="px-4 py-3">Cliente</th>
-              <th className="px-4 py-3">Mercado Pago</th>
+              <th className="px-4 py-3">Bancos</th>
               <th className="px-4 py-3">Carregadores</th>
               <th className="px-4 py-3" />
             </tr>
@@ -107,17 +124,20 @@ export default function Clientes() {
                   <div className="font-bold text-[var(--color-text)]">{c.nome_empresa}</div>
                   <div className="text-xs text-[var(--color-text-soft)]">{[c.email_contato, c.telefone].filter(Boolean).join(" · ") || "-"}</div>
                 </td>
-                <td className="px-4 py-3">
-                  {c.tem_token_mp ? (
-                    <span className="inline-flex items-center gap-1.5 font-semibold text-[var(--color-success)]">
-                      <CircleCheck size={16} /> Conta {c.mp_user_id}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 font-semibold text-[var(--color-warning)]">
-                      <TriangleAlert size={16} /> Sem token
-                    </span>
-                  )}
-                  {c.token_mp_prefixo ? <div className="font-mono text-xs text-[var(--color-text-soft)]">{c.token_mp_prefixo}…</div> : null}
+                <td className="space-y-1 px-4 py-3">
+                  {c.cliente_mercado_pago ? (
+                    <div className={`flex items-center gap-1.5 text-sm font-semibold ${c.tem_token_mp ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
+                      {c.tem_token_mp ? <CircleCheck size={15} /> : <TriangleAlert size={15} />}
+                      Mercado Pago {c.tem_token_mp ? <span className="font-normal text-[var(--color-text-soft)]">· conta {c.mp_user_id}</span> : "· sem token"}
+                    </div>
+                  ) : null}
+                  {c.cliente_sumup ? (
+                    <div className={`flex items-center gap-1.5 text-sm font-semibold ${c.tem_sumup ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
+                      {c.tem_sumup ? <CircleCheck size={15} /> : <TriangleAlert size={15} />}
+                      SumUp {c.tem_sumup ? <span className="font-normal text-[var(--color-text-soft)]">· {c.sumup_merchant_code}</span> : "· sem API key"}
+                    </div>
+                  ) : null}
+                  {!c.cliente_mercado_pago && !c.cliente_sumup ? <span className="text-sm text-[var(--color-text-soft)]">Nenhum banco</span> : null}
                 </td>
                 <td className="px-4 py-3">
                   <Badge tom={c.carregadores ? "ok" : "neutro"}>{c.carregadores}</Badge>
@@ -133,7 +153,7 @@ export default function Clientes() {
             {lista.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-[var(--color-text-soft)]">
-                  Nenhum cliente cadastrado. Cadastre o dono do carregador com o token do Mercado Pago dele.
+                  Nenhum cliente cadastrado. Cadastre o dono do carregador com as credenciais do banco dele.
                 </td>
               </tr>
             ) : null}
@@ -160,26 +180,83 @@ export default function Clientes() {
               </Campo>
             </div>
 
-            <div className="rounded-[22px] bg-[var(--color-bg-muted)] p-4">
-              <div className="mb-3 font-bold text-[var(--color-text)]">Mercado Pago</div>
-              <Campo
-                rotulo="Access Token de producao"
-                dica={
-                  form.id && form.tem_token_mp
-                    ? "Ja configurado. Deixe vazio para manter; preencha so para trocar."
-                    : "Mercado Pago > Suas integracoes > sua aplicacao > Credenciais de producao > Access Token (comeca com APP_USR-). O sistema confere o token antes de salvar."
-                }
-              >
-                <input
-                  className={`${campoClasse} font-mono`}
-                  type="password"
-                  autoComplete="off"
-                  placeholder={form.id && form.tem_token_mp ? "••••••••••••" : "APP_USR-..."}
-                  value={form.mp_access_token}
-                  onChange={(e) => setForm({ ...form, mp_access_token: e.target.value })}
-                />
-              </Campo>
+            <div>
+              <div className="mb-2 text-sm font-semibold">Bancos que este cliente usa</div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {BANCOS.map((banco) => {
+                  const ligado = Boolean(form[banco.chave]);
+                  return (
+                    <button
+                      key={banco.chave}
+                      type="button"
+                      onClick={() => setForm({ ...form, [banco.chave]: !ligado })}
+                      className={`flex items-start gap-3 rounded-[18px] border-2 p-3 text-left transition ${
+                        ligado ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]" : "border-[var(--color-border)] bg-white"
+                      }`}
+                    >
+                      <span
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
+                          ligado ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-white" : "border-slate-300"
+                        }`}
+                      >
+                        {ligado ? <Check size={14} /> : null}
+                      </span>
+                      <span>
+                        <span className="block font-bold text-[var(--color-text)]">{banco.nome}</span>
+                        <span className="block text-xs text-[var(--color-text-soft)]">{banco.ajuda}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {!form.cliente_mercado_pago && !form.cliente_sumup ? (
+                <p className="mt-2 text-xs text-[var(--color-error)]">Escolha pelo menos um banco.</p>
+              ) : null}
             </div>
+
+            {form.cliente_mercado_pago ? (
+              <div className="rounded-[22px] bg-[var(--color-bg-muted)] p-4">
+                <Campo
+                  rotulo="Mercado Pago · Access Token de producao"
+                  dica={
+                    form.id && form.tem_token_mp
+                      ? "Ja configurado. Deixe vazio para manter; preencha so para trocar."
+                      : "Suas integracoes > sua aplicacao > Credenciais de producao (comeca com APP_USR-). Conferido antes de salvar."
+                  }
+                >
+                  <input
+                    className={`${campoClasse} font-mono`}
+                    type="password"
+                    autoComplete="off"
+                    placeholder={form.id && form.tem_token_mp ? "••••••••••••" : "APP_USR-..."}
+                    value={form.mp_access_token}
+                    onChange={(e) => setForm({ ...form, mp_access_token: e.target.value })}
+                  />
+                </Campo>
+              </div>
+            ) : null}
+
+            {form.cliente_sumup ? (
+              <div className="rounded-[22px] bg-[var(--color-bg-muted)] p-4">
+                <Campo
+                  rotulo="SumUp · API key"
+                  dica={
+                    form.id && form.tem_sumup
+                      ? `Ja configurada (merchant ${form.sumup_merchant_code}). Deixe vazio para manter.`
+                      : "Painel SumUp > Desenvolvedores > API keys (comeca com sup_sk_). O merchant code e' descoberto sozinho."
+                  }
+                >
+                  <input
+                    className={`${campoClasse} font-mono`}
+                    type="password"
+                    autoComplete="off"
+                    placeholder={form.id && form.tem_sumup ? "••••••••••••" : "sup_sk_..."}
+                    value={form.sumup_api_key}
+                    onChange={(e) => setForm({ ...form, sumup_api_key: e.target.value })}
+                  />
+                </Campo>
+              </div>
+            ) : null}
 
             {form.id ? (
               <label className="flex items-center gap-3 text-sm font-semibold">
@@ -193,7 +270,7 @@ export default function Clientes() {
                 Cancelar
               </button>
               <Button type="submit" className="flex-1 justify-center" disabled={salvando}>
-                {salvando ? "Conferindo o token..." : "Salvar"}
+                {salvando ? "Conferindo as credenciais..." : "Salvar"}
               </Button>
             </div>
           </form>
