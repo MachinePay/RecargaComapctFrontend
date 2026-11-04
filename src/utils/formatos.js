@@ -56,4 +56,5 @@ export const MOTIVOS_FIM = {
   carregador_reiniciou: "Carregador reiniciou",
   parada_emergencia: "Parada de emergencia",
   stop_recusado_verificar: "Verificar: stop recusado",
+  stop_sem_confirmacao: "Parou (sem confirmacao do carregador)",
 };
