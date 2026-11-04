@@ -3,7 +3,9 @@ import axios from "axios";
 function normalizeApiBaseUrl(value) {
   const trimmedValue = value?.trim();
   if (!trimmedValue) return "/api/v1";
-  return trimmedValue.replace(/\/+$/, "");
+  const semBarra = trimmedValue.replace(/\/+$/, "");
+  // Esquecer o /api/v1 no VITE_API_URL da Vercel da 404 em tudo; completa aqui.
+  return semBarra.endsWith("/api/v1") ? semBarra : `${semBarra}/api/v1`;
 }
 
 export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
