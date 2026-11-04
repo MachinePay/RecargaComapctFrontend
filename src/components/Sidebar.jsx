@@ -1,4 +1,4 @@
-import { BarChart3, BatteryCharging, Building2, Home, LogOut, Map, Menu, PlugZap, Stethoscope, X } from "lucide-react";
+import { BarChart3, BatteryCharging, Building2, Home, LogOut, Map, Menu, MessageCircle, PlugZap, Stethoscope, X } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
@@ -46,6 +46,11 @@ export default function Sidebar() {
       <li>
         <NavLink to="/sessoes" className={linkClassName} onClick={closeMobile}>
           <BatteryCharging size={20} /> Recargas
+        </NavLink>
+      </li>
+      <li>
+        <NavLink to="/whatsapp" className={linkClassName} onClick={closeMobile}>
+          <MessageCircle size={20} /> WhatsApp
         </NavLink>
       </li>
       <li>
