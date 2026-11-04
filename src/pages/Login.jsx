@@ -52,8 +52,8 @@ export default function Login() {
           <div className="relative flex h-full flex-col justify-between">
             <div>
               <div className="inline-flex items-center gap-3 rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm text-white/80">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/18 font-bold">C</span>
-                CompactPay Recarga
+                <img src="/logo-simbolo.png" alt="" className="h-8 w-8 rounded-full bg-white object-contain p-0.5" />
+                CompactRecarga
               </div>
               <h1 className="mt-10 max-w-md text-4xl font-extrabold leading-tight tracking-[-0.04em] text-white md:text-6xl">
                 Recarga por tempo, sem ninguem no posto.
@@ -83,6 +83,7 @@ export default function Login() {
         <section className="app-panel flex items-center justify-center rounded-[30px] bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(245,248,242,0.96))] p-6 md:p-10">
           <form onSubmit={handleSubmit} className="w-full max-w-md">
             <div className="mb-8">
+              <img src="/logo-completo.png" alt="CompactRecarga" className="mb-6 w-full max-w-[280px] rounded-[18px] bg-white" />
               <div className="text-sm font-semibold uppercase tracking-[0.26em] text-[var(--color-text-soft)]">
                 Acesso seguro
               </div>

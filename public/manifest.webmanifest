@@ -1,5 +1,5 @@
 {
-  "name": "CompactPay Recarga",
+  "name": "CompactRecarga",
   "short_name": "Recarga",
   "start_url": "/dashboard",
   "display": "standalone",

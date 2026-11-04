@@ -66,9 +66,11 @@ export default function Sidebar() {
       <header className="fixed inset-x-0 top-0 z-50 border-b border-[var(--color-border)] bg-white/95 px-3 py-2 shadow-[0_8px_24px_rgba(34,61,43,0.08)] backdrop-blur lg:hidden">
         <div className="flex items-center justify-between gap-3">
           <Link to="/dashboard" className="flex min-w-0 items-center gap-2" onClick={closeMobile}>
-            <img src="/logoCompactpay.jpeg" alt="CompactPay" className="h-9 w-9 rounded-xl object-cover" />
+            <img src="/logo-simbolo.png" alt="CompactRecarga" className="h-9 w-9 rounded-xl bg-white object-contain" />
             <div className="min-w-0">
-              <div className="truncate text-sm font-extrabold text-[var(--color-text)]">CompactPay Recarga</div>
+              <div className="truncate text-sm font-extrabold text-[var(--color-text)]">
+                Compact<span className="text-[#2f9e5b]">Recarga</span>
+              </div>
               <div className="truncate text-[11px] font-medium text-[var(--color-text-soft)]">Administrador</div>
             </div>
           </Link>
@@ -112,9 +114,11 @@ export default function Sidebar() {
             className="block rounded-[18px] bg-[linear-gradient(135deg,#ffffff_0%,#eff5ef_100%)] p-3 soft-ring lg:rounded-[24px] lg:p-5"
           >
             <div className="flex items-center gap-3">
-              <img src="/logoCompactpay.jpeg" alt="CompactPay" className="h-10 w-10 rounded-2xl object-cover lg:h-12 lg:w-12" />
+              <img src="/logo-simbolo.png" alt="CompactRecarga" className="h-10 w-10 rounded-2xl bg-white object-contain lg:h-12 lg:w-12" />
               <div className="min-w-0">
-                <div className="truncate text-base font-bold text-[var(--color-text)] lg:text-lg">CompactPay</div>
+                <div className="truncate text-base font-extrabold text-[var(--color-primary-strong)] lg:text-lg">
+                  Compact<span className="text-[#2f9e5b]">Recarga</span>
+                </div>
                 <div className="truncate text-xs text-[var(--color-text-soft)] lg:text-sm">Recarga de veiculos</div>
               </div>
             </div>
