@@ -446,6 +446,11 @@ export default function CarregadorDetalhe() {
                 <div className="mt-2 text-sm text-[var(--color-text-soft)]">
                   Recarga #{sessao.id} · {sessao.minutos_pagos ? `${formatarMinutos(sessao.minutos_pagos)} pagos` : "livre (RFID)"} · {formatarKwh(sessao.energia_kwh)}
                 </div>
+                {sessao.status === "carregando" && sessao.segundos_restantes == null && sessao.minutos_pagos ? (
+                  <div className="mt-1 text-sm font-semibold text-blue-800">
+                    Aguardando o carro puxar energia: o tempo pago ainda nao comecou. Se nao puxar em 5 min, estorna sozinho.
+                  </div>
+                ) : null}
               </div>
               <div className="flex items-center gap-3">
                 {sessao.segundos_restantes != null ? (
@@ -475,6 +480,9 @@ export default function CarregadorDetalhe() {
               <BarraConexao carregador={carregador} compacto />
             </div>
             <InfoPill rotulo="Online desde">{desde(carregador.online_desde)}</InfoPill>
+            <InfoPill rotulo="Trava">
+              {carregador.travado == null ? "-" : carregador.travado ? "Travado (so com pagamento)" : sessao ? "Liberado para a recarga" : "Destravado"}
+            </InfoPill>
             <InfoPill rotulo="IP">{carregador.ip || "-"}</InfoPill>
             <InfoPill rotulo="Modelo">{[carregador.vendor, carregador.modelo].filter(Boolean).join(" ") || "-"}</InfoPill>
             <InfoPill rotulo="Firmware">{carregador.firmware_version || "-"}</InfoPill>

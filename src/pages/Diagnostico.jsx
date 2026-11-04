@@ -12,6 +12,7 @@ import {
   CircleX,
   Copy,
   LoaderCircle,
+  Lock,
   LockOpen,
   Pause,
   Play,
@@ -24,6 +25,7 @@ import {
   Square,
   Trash2,
   TriangleAlert,
+  Unlock,
   Zap,
 } from "lucide-react";
 
@@ -442,6 +444,18 @@ export default function Diagnostico() {
             : "O carregador ainda nao informou o status.",
           dica: carregador.erro_conector ? "O carregador informou defeito. Veja a tela dele e o manual." : null,
         },
+        {
+          titulo: "Trava sem pagamento",
+          estado: !carregador.online ? "pendente" : carregador.sessao_ativa || carregador.travado ? "ok" : "aviso",
+          detalhe: !carregador.online
+            ? "Aguardando o carregador conectar."
+            : carregador.sessao_ativa
+              ? "Liberado para a recarga em andamento."
+              : carregador.travado
+                ? "Travado: plugar o carro sem pagar nao carrega."
+                : "Ainda nao travado (o servidor tenta a cada 30 s).",
+          dica: "Se continuar assim, o carregador nao aceitou o comando de travar: veja o ALERTA no historico e a resposta do ChangeAvailability no log.",
+        },
       ]
     : [];
   const passosOk = passos.filter((p) => p.estado === "ok").length;
@@ -538,9 +552,32 @@ export default function Diagnostico() {
       },
     },
     {
+      chave: "travar",
+      Icone: Lock,
+      titulo: "Travar conector",
+      descricao: "Deixa o conector indisponivel: plugar o carro sem pagar nao deve carregar. E' o estado normal sem recarga paga.",
+      precisaOnline: true,
+      desabilitado: Boolean(sessao),
+      executar: async () => {
+        const { data } = await api.post(`${base}/travar`, null, silencioso);
+        return { ...interpretarResposta(data.resposta), tecnico: data.resposta };
+      },
+    },
+    {
+      chave: "liberar-trava",
+      Icone: Unlock,
+      titulo: "Destravar conector",
+      descricao: "So para teste: volta o conector ao normal. Sem recarga paga, o servidor trava de novo em ~30 s.",
+      precisaOnline: true,
+      executar: async () => {
+        const { data } = await api.post(`${base}/destravar`, null, silencioso);
+        return { ...interpretarResposta(data.resposta), tecnico: data.resposta };
+      },
+    },
+    {
       chave: "destravar",
       Icone: LockOpen,
-      titulo: "Destravar cabo",
+      titulo: "Soltar o cabo",
       descricao: "Pede para o carregador soltar a trava do conector.",
       precisaOnline: true,
       executar: () => comandoOcpp("UnlockConnector", { connectorId: conector }),
@@ -549,7 +586,7 @@ export default function Diagnostico() {
       chave: "reiniciar",
       Icone: RefreshCw,
       titulo: "Reiniciar carregador",
-      descricao: "Reinicio leve (Soft Reset). Ele desconecta e deve voltar sozinho em ~1 minuto.",
+      descricao: "Reinicio leve (Soft Reset). Cuidado: o JST-901 nao reconecta sozinho depois; prefira desligar e ligar no disjuntor.",
       precisaOnline: true,
       confirmar: { titulo: "Reiniciar o carregador?", texto: "Ele desconecta e volta sozinho. Uma recarga em andamento e' interrompida.", confirmarTexto: "Reiniciar", perigoso: true },
       executar: () => comandoOcpp("Reset", { type: "Soft" }),
