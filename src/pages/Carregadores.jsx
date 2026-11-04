@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import Swal from "sweetalert2";
 
@@ -15,6 +15,7 @@ import { formatarDataHora } from "../utils/formatos";
 const formVazio = { id_hardware: "", nome_local: "", connector_id: 1, mp_terminal_id: "", gerar_senha_ocpp: false };
 
 export default function Carregadores() {
+  const navigate = useNavigate();
   const [lista, setLista] = useState([]);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(formVazio);
@@ -86,7 +87,11 @@ export default function Carregadores() {
           </thead>
           <tbody>
             {lista.map((c) => (
-              <tr key={c.id_hardware} className="border-t border-[var(--color-border)] hover:bg-white/70">
+              <tr
+                key={c.id_hardware}
+                onClick={() => navigate(`/carregadores/${encodeURIComponent(c.id_hardware)}`)}
+                className="cursor-pointer border-t border-[var(--color-border)] hover:bg-white/70"
+              >
                 <td className="px-4 py-3">
                   <Link to={`/carregadores/${encodeURIComponent(c.id_hardware)}`} className="font-bold text-[var(--color-primary-strong)]">
                     {c.nome_local}
