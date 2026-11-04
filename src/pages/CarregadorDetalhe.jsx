@@ -246,6 +246,30 @@ export default function CarregadorDetalhe() {
   const localForm = local ?? {
     texto: carregador.latitude != null ? `${carregador.latitude}, ${carregador.longitude}` : "",
     endereco: carregador.endereco || "",
+    cep: carregador.cep || "",
+    numero: "",
+  };
+
+  const buscarCep = async () => {
+    const digitos = (localForm.cep || "").replace(/\D/g, "");
+    if (digitos.length !== 8) {
+      setLocalErro("CEP precisa ter 8 numeros.");
+      return;
+    }
+    setLocalErro("");
+    try {
+      const { data } = await api.get(`/admin/cep/${digitos}`, { params: { numero: localForm.numero || undefined }, silencioso: true });
+      setLocal({
+        ...localForm,
+        cep: data.cep,
+        endereco: data.endereco,
+        texto: data.latitude != null ? `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}` : localForm.texto,
+      });
+      if (data.latitude == null) setLocalErro("Achei o endereco, mas nao o ponto no mapa. Marque clicando no mapa.");
+      else if (data.precisao === "cidade") setLocalErro("So achei a cidade: ajuste o ponto clicando no mapa.");
+    } catch (error) {
+      setLocalErro(error.compactpayMessage || "CEP nao encontrado.");
+    }
   };
   const coordenadas = lerCoordenadas(localForm.texto);
 
@@ -276,6 +300,7 @@ export default function CarregadorDetalhe() {
     }
     try {
       await api.patch(base, {
+        cep: (localForm.cep || "").trim() || null,
         endereco: localForm.endereco.trim() || null,
         latitude: coordenadas?.latitude ?? null,
         longitude: coordenadas?.longitude ?? null,
@@ -505,6 +530,19 @@ export default function CarregadorDetalhe() {
         <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
           {isAdmin ? (
           <form onSubmit={salvarLocal} className="space-y-3">
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="w-[140px]">
+                <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">CEP</span>
+                <input className={`${campoClasse} py-2 font-mono`} inputMode="numeric" placeholder="00000-000" value={localForm.cep} onChange={(e) => setLocal({ ...localForm, cep: e.target.value })} />
+              </label>
+              <label className="w-[100px]">
+                <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Numero</span>
+                <input className={`${campoClasse} py-2`} value={localForm.numero} onChange={(e) => setLocal({ ...localForm, numero: e.target.value })} />
+              </label>
+              <button type="button" onClick={buscarCep} className="pill-button px-4 py-2 text-sm font-semibold">
+                Buscar pelo CEP
+              </button>
+            </div>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Endereco (texto)</span>
               <input className={`${campoClasse} py-2`} placeholder="Rua, numero - bairro, cidade" value={localForm.endereco} onChange={(e) => setLocal({ ...localForm, endereco: e.target.value })} />

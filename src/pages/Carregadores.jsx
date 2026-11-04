@@ -24,6 +24,8 @@ const formVazio = {
   sumup_reader_id: "",
   sumup_device_code: "",
   sumup_usuario: "",
+  cep: "",
+  numero_endereco: "",
   gerar_senha_ocpp: false,
 };
 
@@ -78,6 +80,7 @@ export default function Carregadores() {
   const [salvando, setSalvando] = useState(false);
   const [readers, setReaders] = useState({ carregando: false, lista: [], erro: "" });
   const [pareamento, setPareamento] = useState({ codigo: "", nome: "", enviando: false });
+  const [cepAchado, setCepAchado] = useState(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -147,7 +150,24 @@ export default function Carregadores() {
     }
   };
 
+  // Mostra o endereco do CEP antes de salvar (o backend busca de novo ao cadastrar).
+  const conferirCep = async () => {
+    const digitos = form.cep.replace(/\D/g, "");
+    if (digitos.length !== 8) {
+      setCepAchado(digitos ? { erro: "CEP precisa ter 8 numeros" } : null);
+      return;
+    }
+    setCepAchado({ buscando: true });
+    try {
+      const { data } = await api.get(`/admin/cep/${digitos}`, { params: { numero: form.numero_endereco || undefined }, silencioso: true });
+      setCepAchado(data);
+    } catch (error) {
+      setCepAchado({ erro: error.compactpayMessage || "CEP nao encontrado" });
+    }
+  };
+
   const abrirCadastro = () => {
+    setCepAchado(null);
     const unico = clientes.length === 1 ? String(clientes[0].id) : "";
     setForm({ ...formVazio, cliente_id: unico, banco_pagamento: unico ? clientes[0].bancos?.[0] || "" : "" });
     setReaders({ carregando: false, lista: [], erro: "" });
@@ -548,6 +568,38 @@ export default function Carregadores() {
           <p className="-mt-2 text-xs text-[var(--color-text-soft)]">
             O ID e' o do app do fabricante (Platform Pile ID). Se nao souber, aponte o carregador para o servidor: ele aparece no Diagnostico.
           </p>
+
+          <div className="rounded-[18px] bg-[var(--color-bg-muted)] p-3">
+            <div className="text-sm font-semibold text-[var(--color-text)]">
+              Endereco <span className="font-normal text-[var(--color-text-soft)]">(opcional, para aparecer no mapa)</span>
+            </div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-[160px_110px_1fr]">
+              <input
+                className={`${campoClasse} py-2 font-mono`}
+                inputMode="numeric"
+                placeholder="CEP"
+                value={form.cep}
+                onChange={(e) => setForm({ ...form, cep: e.target.value })}
+                onBlur={conferirCep}
+              />
+              <input
+                className={`${campoClasse} py-2`}
+                placeholder="Numero"
+                value={form.numero_endereco}
+                onChange={(e) => setForm({ ...form, numero_endereco: e.target.value })}
+                onBlur={conferirCep}
+              />
+              <div className="flex items-center text-xs text-[var(--color-text-soft)]">
+                {cepAchado?.buscando
+                  ? "Buscando..."
+                  : cepAchado?.erro
+                    ? <span className="text-[var(--color-warning)]">{cepAchado.erro}</span>
+                    : cepAchado?.endereco
+                      ? <span className="text-[var(--color-text)]">{cepAchado.endereco}{cepAchado.latitude == null ? " (sem ponto no mapa)" : ""}</span>
+                      : "O ponto exato pode ser ajustado depois pelo celular."}
+              </div>
+            </div>
+          </div>
 
           <div className="flex gap-3 pt-2">
             <button type="button" className="pill-button flex-1 px-5 py-3 font-semibold" onClick={() => setModal(false)}>
