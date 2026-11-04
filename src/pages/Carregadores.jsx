@@ -4,6 +4,7 @@ import { BatteryCharging, Map, MapPin, PlugZap, Plus, Search, Stethoscope, Walle
 import Swal from "sweetalert2";
 
 import api from "../api/axios";
+import { useAuth } from "../context/useAuth";
 import usePolling from "../hooks/usePolling";
 import Button from "../components/Button";
 import Cabecalho from "../components/Cabecalho";
@@ -65,6 +66,7 @@ function Atividade({ c }) {
 
 export default function Carregadores() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [lista, setLista] = useState(null);
   const [clientes, setClientes] = useState([]);
   const [busca, setBusca] = useState("");
@@ -198,9 +200,11 @@ export default function Carregadores() {
             <Link to="/mapa" className="pill-button inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold">
               <Map size={16} /> Mapa
             </Link>
-            <Button onClick={abrirCadastro}>
-              <Plus size={18} /> Novo carregador
-            </Button>
+            {isAdmin ? (
+              <Button onClick={abrirCadastro}>
+                <Plus size={18} /> Novo carregador
+              </Button>
+            ) : null}
           </>
         }
       />
@@ -326,14 +330,14 @@ export default function Carregadores() {
                 </td>
                 <td className="px-3 py-3">
                   <div className="flex flex-wrap justify-end gap-1.5">
-                    <Link
+                    {isAdmin ? <Link
                       to={`/diagnostico?carregador=${encodeURIComponent(c.id_hardware)}`}
                       onClick={(e) => e.stopPropagation()}
                       className="pill-button inline-flex h-8 w-8 items-center justify-center"
                       title="Diagnostico"
                     >
                       <Stethoscope size={15} />
-                    </Link>
+                    </Link> : null}
                     {c.latitude != null ? (
                       <Link
                         to={`/mapa?carregador=${encodeURIComponent(c.id_hardware)}`}

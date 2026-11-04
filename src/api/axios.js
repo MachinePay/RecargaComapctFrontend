@@ -51,7 +51,8 @@ export function getApiErrorMessage(error, fallback = "Erro inesperado. Tente nov
   const detail = normalizeDetail(data?.detail || data?.message || data?.error || data);
 
   if (status === 400) return detail || "Confira os dados informados e tente novamente.";
-  if (status === 401) return "Chave de acesso invalida. Entre novamente.";
+  if (status === 401) return detail || "Sessao expirada. Entre novamente.";
+  if (status === 403) return detail || "Seu usuario nao tem permissao para isso.";
   if (status === 404) return detail || "Registro nao encontrado.";
   if (status === 409) return detail || "Esta operacao conflita com dados ja cadastrados.";
   if (status === 422) return detail || "Algum campo obrigatorio esta ausente ou invalido.";
@@ -71,15 +72,18 @@ export function getApiErrorMessage(error, fallback = "Erro inesperado. Tente nov
   return fallback;
 }
 
-// Painel: autentica pela chave de admin (X-Admin-Key) guardada no login.
+// Painel: usuario logado (Bearer JWT) ou chave de admin (X-Admin-Key).
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
 });
 
 api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("authToken");
   const adminKey = localStorage.getItem("adminKey");
-  if (adminKey) {
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  } else if (adminKey) {
     config.headers["X-Admin-Key"] = adminKey;
   }
   return config;
@@ -93,6 +97,8 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && !error.config?.silencioso) {
       localStorage.removeItem("adminKey");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("authUsuario");
       redirectToLogin();
     }
 

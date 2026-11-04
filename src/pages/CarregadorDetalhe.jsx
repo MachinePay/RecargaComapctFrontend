@@ -18,6 +18,7 @@ import {
 import Swal from "sweetalert2";
 
 import api from "../api/axios";
+import { useAuth } from "../context/useAuth";
 import usePolling from "../hooks/usePolling";
 import Badge from "../components/Badge";
 import Button from "../components/Button";
@@ -72,6 +73,7 @@ function desde(valor) {
 
 export default function CarregadorDetalhe() {
   const { carregadorId } = useParams();
+  const { isAdmin } = useAuth();
   const base = `/admin/carregadores/${encodeURIComponent(carregadorId)}`;
   const [carregador, setCarregador] = useState(null);
   const [sessoes, setSessoes] = useState([]);
@@ -309,6 +311,7 @@ export default function CarregadorDetalhe() {
             {carregador.endereco ? ` · ${carregador.endereco}` : ""}
           </div>
         </div>
+        {isAdmin ? (
         <div className="flex flex-wrap gap-2">
           <Link
             to={`/diagnostico?carregador=${encodeURIComponent(carregador.id_hardware)}`}
@@ -331,6 +334,7 @@ export default function CarregadorDetalhe() {
             <Play size={16} /> Liberar teste
           </Button>
         </div>
+        ) : null}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -354,13 +358,13 @@ export default function CarregadorDetalhe() {
                 {sessao.segundos_restantes != null ? (
                   <span className="text-4xl font-extrabold tabular-nums text-blue-700">{formatarRelogio(sessao.segundos_restantes)}</span>
                 ) : null}
-                <button
+                {isAdmin ? <button
                   type="button"
                   onClick={() => encerrar(sessao)}
                   className="rounded-full border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-[var(--color-error)] hover:bg-rose-50"
                 >
                   Encerrar
-                </button>
+                </button> : null}
               </div>
             </div>
           ) : (
@@ -396,6 +400,18 @@ export default function CarregadorDetalhe() {
             )
           }
         >
+          {!isAdmin ? (
+            <div className="text-sm text-[var(--color-text)]">
+              {carregador.preco_valor ? (
+                <>
+                  Preco: <b>{formatarValor(carregador.preco_valor)}</b> = <b>{formatarMinutos(carregador.preco_minutos)}</b>
+                </>
+              ) : (
+                "Preco ainda nao definido."
+              )}
+            </div>
+          ) : null}
+          {isAdmin ? (
           <form onSubmit={salvarPreco} className="flex flex-wrap items-end gap-2">
             <label className="w-[110px]">
               <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Valor (R$)</span>
@@ -410,6 +426,7 @@ export default function CarregadorDetalhe() {
               Salvar preco
             </Button>
           </form>
+          ) : null}
           {precoValorNum > 0 && precoMinutosNum > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {[5, 10, 20, 50].map((v) => (
@@ -445,13 +462,14 @@ export default function CarregadorDetalhe() {
                 <span className="text-[var(--color-text-soft)]">
                   {carregador.tem_token_mp ? "Crie a loja e o caixa na conta do cliente." : "Escolha um cliente com token do Mercado Pago (Editar)."}
                 </span>
-                <Button onClick={criarCaixa} className="px-4 py-2 text-sm" disabled={!carregador.tem_token_mp || criandoCaixa}>
+                <Button onClick={criarCaixa} className={`px-4 py-2 text-sm ${isAdmin ? "" : "hidden"}`} disabled={!carregador.tem_token_mp || criandoCaixa}>
                   <CreditCard size={16} /> {criandoCaixa ? "Criando..." : "Criar loja e caixa"}
                 </Button>
               </div>
             )}
           </div>
 
+          {isAdmin ? (
           <form onSubmit={simularPagamento} className="mt-3 flex flex-wrap items-end gap-2 border-t border-[var(--color-border)] pt-3">
             <label className="w-[130px]">
               <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Simular pagamento</span>
@@ -471,6 +489,7 @@ export default function CarregadorDetalhe() {
               </span>
             ) : null}
           </form>
+          ) : null}
         </Painel>
       </div>
 
@@ -484,6 +503,7 @@ export default function CarregadorDetalhe() {
         ) : null}
       >
         <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
+          {isAdmin ? (
           <form onSubmit={salvarLocal} className="space-y-3">
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Endereco (texto)</span>
@@ -512,14 +532,17 @@ export default function CarregadorDetalhe() {
               </Button>
             </div>
           </form>
+          ) : (
+            <div className="text-sm text-[var(--color-text-soft)]">{carregador.endereco || "Sem endereco cadastrado."}</div>
+          )}
           <div className="overflow-hidden rounded-[24px] border border-[var(--color-border)]">
             <MapaLeaflet
               pontos={pontoMapa}
               className="h-[260px]"
-              onClicarMapa={(lat, lng) => {
+              onClicarMapa={isAdmin ? (lat, lng) => {
                 setLocal({ ...localForm, texto: `${lat.toFixed(6)}, ${lng.toFixed(6)}` });
                 setLocalErro("");
-              }}
+              } : undefined}
             />
           </div>
         </div>
@@ -544,7 +567,7 @@ export default function CarregadorDetalhe() {
           ))}
         </div>
         {aba === "recargas" ? (
-          <TabelaSessoes sessoes={sessoes} mostrarCarregador={false} onEncerrar={encerrar} />
+          <TabelaSessoes sessoes={sessoes} mostrarCarregador={false} onEncerrar={isAdmin ? encerrar : undefined} />
         ) : (
           <ul className="max-h-[420px] overflow-y-auto text-sm">
             {historico.map((h, i) => (

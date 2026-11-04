@@ -1,14 +1,14 @@
-import { BarChart3, BatteryCharging, Building2, Home, LogOut, Map, Menu, MessageCircle, PlugZap, Stethoscope, X } from "lucide-react";
+import { BarChart3, BatteryCharging, Building2, HeartPulse, Home, LogOut, Map, Menu, MessageCircle, PlugZap, Radio, Stethoscope, Users, WifiOff, X } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 
 export default function Sidebar() {
-  const { logout } = useAuth();
+  const { logout, user, isAdmin } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const linkClassName = ({ isActive }) =>
-    `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition lg:text-base ${
+    `flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-semibold transition ${
       isActive
         ? "bg-[linear-gradient(135deg,var(--color-primary-soft),#f6fbf8)] text-[var(--color-primary-strong)] shadow-[0_10px_30px_rgba(31,122,76,0.12)]"
         : "text-[var(--color-text-soft)] hover:bg-white hover:text-[var(--color-text)]"
@@ -16,48 +16,31 @@ export default function Sidebar() {
 
   const closeMobile = () => setMobileOpen(false);
 
+  // Itens de administrador ficam escondidos para usuario de cliente.
+  const itens = [
+    { to: "/dashboard", Icone: Home, texto: "Dashboard", end: true },
+    { to: "/ao-vivo", Icone: Radio, texto: "Ao vivo" },
+    { to: "/gestao", Icone: BarChart3, texto: "Gestao" },
+    { to: "/carregadores", Icone: PlugZap, texto: "Carregadores" },
+    { to: "/mapa", Icone: Map, texto: "Mapa" },
+    { to: "/saude", Icone: HeartPulse, texto: "Saude" },
+    { to: "/quedas", Icone: WifiOff, texto: "Quedas" },
+    { to: "/sessoes", Icone: BatteryCharging, texto: "Recargas" },
+    { to: "/clientes", Icone: Building2, texto: "Clientes", admin: true },
+    { to: "/usuarios", Icone: Users, texto: "Usuarios", admin: true },
+    { to: "/whatsapp", Icone: MessageCircle, texto: "WhatsApp", admin: true },
+    { to: "/diagnostico", Icone: Stethoscope, texto: "Diagnostico", admin: true },
+  ].filter((item) => isAdmin || !item.admin);
+
   const navItems = (
-    <ul className="space-y-2">
-      <li>
-        <NavLink to="/dashboard" end className={linkClassName} onClick={closeMobile}>
-          <Home size={20} /> Dashboard
-        </NavLink>
-      </li>
-      <li>
-        <NavLink to="/gestao" className={linkClassName} onClick={closeMobile}>
-          <BarChart3 size={20} /> Gestao
-        </NavLink>
-      </li>
-      <li>
-        <NavLink to="/carregadores" className={linkClassName} onClick={closeMobile}>
-          <PlugZap size={20} /> Carregadores
-        </NavLink>
-      </li>
-      <li>
-        <NavLink to="/mapa" className={linkClassName} onClick={closeMobile}>
-          <Map size={20} /> Mapa
-        </NavLink>
-      </li>
-      <li>
-        <NavLink to="/clientes" className={linkClassName} onClick={closeMobile}>
-          <Building2 size={20} /> Clientes
-        </NavLink>
-      </li>
-      <li>
-        <NavLink to="/sessoes" className={linkClassName} onClick={closeMobile}>
-          <BatteryCharging size={20} /> Recargas
-        </NavLink>
-      </li>
-      <li>
-        <NavLink to="/whatsapp" className={linkClassName} onClick={closeMobile}>
-          <MessageCircle size={20} /> WhatsApp
-        </NavLink>
-      </li>
-      <li>
-        <NavLink to="/diagnostico" className={linkClassName} onClick={closeMobile}>
-          <Stethoscope size={20} /> Diagnostico
-        </NavLink>
-      </li>
+    <ul className="space-y-1">
+      {itens.map((item) => (
+        <li key={item.to}>
+          <NavLink to={item.to} end={item.end} className={linkClassName} onClick={closeMobile}>
+            <item.Icone size={20} /> {item.texto}
+          </NavLink>
+        </li>
+      ))}
     </ul>
   );
 
@@ -71,7 +54,7 @@ export default function Sidebar() {
               <div className="truncate text-sm font-extrabold text-[var(--color-text)]">
                 Compact<span className="text-[#2f9e5b]">Recarga</span>
               </div>
-              <div className="truncate text-[11px] font-medium text-[var(--color-text-soft)]">Administrador</div>
+              <div className="truncate text-[11px] font-medium text-[var(--color-text-soft)]">{user?.nome || "Administrador"}</div>
             </div>
           </Link>
           <button
@@ -108,7 +91,7 @@ export default function Sidebar() {
       ) : null}
 
       <aside className="app-panel hidden w-[260px] flex-col justify-between gap-3 p-4 lg:sticky lg:top-5 lg:flex lg:h-[calc(100vh-2.5rem)] lg:overflow-y-auto">
-        <div className="space-y-3 lg:space-y-8">
+        <div className="space-y-3 lg:space-y-5">
           <Link
             to="/dashboard"
             className="block rounded-[18px] bg-[linear-gradient(135deg,#ffffff_0%,#eff5ef_100%)] p-3 soft-ring lg:rounded-[24px] lg:p-5"
@@ -137,15 +120,12 @@ export default function Sidebar() {
                 <PlugZap size={20} />
               </div>
               <div className="min-w-0">
-                <div className="truncate text-sm font-semibold">Administrador</div>
+                <div className="truncate text-sm font-semibold">{user?.nome || "Administrador"}</div>
                 <div className="mt-0.5 inline-flex items-center rounded-full bg-white/12 px-2.5 py-0.5 text-[11px] font-medium text-white/80">
-                  OCPP 1.6J
+                  {isAdmin ? (user?.porChave ? "Admin (chave)" : "Administrador") : "Cliente"}
                 </div>
               </div>
             </div>
-            <p className="mt-4 text-sm leading-relaxed text-white/70">
-              Carregadores, pacotes de tempo e recargas em andamento em um unico painel.
-            </p>
           </div>
         </div>
 

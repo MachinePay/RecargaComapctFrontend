@@ -14,6 +14,10 @@ const Clientes = lazy(() => import("./pages/Clientes"));
 const Mapa = lazy(() => import("./pages/Mapa"));
 const Gestao = lazy(() => import("./pages/Gestao"));
 const Whatsapp = lazy(() => import("./pages/Whatsapp"));
+const Usuarios = lazy(() => import("./pages/Usuarios"));
+const Quedas = lazy(() => import("./pages/Quedas"));
+const Saude = lazy(() => import("./pages/Saude"));
+const AoVivo = lazy(() => import("./pages/AoVivo"));
 const Login = lazy(() => import("./pages/Login"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -22,6 +26,12 @@ function PrivateRoute({ children }) {
   const location = useLocation();
 
   return user ? children : <Navigate to="/login" replace state={{ from: location }} />;
+}
+
+// Pagina so de administrador: usuario de cliente volta para o dashboard.
+function AdminPage({ children }) {
+  const { isAdmin } = useAuth();
+  return <PrivatePage>{isAdmin ? children : <Navigate to="/dashboard" replace />}</PrivatePage>;
 }
 
 function RouteFallback() {
@@ -49,11 +59,15 @@ export default function AppRoutes() {
           <Route path="/carregadores" element={<PrivatePage><Carregadores /></PrivatePage>} />
           <Route path="/carregadores/:carregadorId" element={<PrivatePage><CarregadorDetalhe /></PrivatePage>} />
           <Route path="/sessoes" element={<PrivatePage><Sessoes /></PrivatePage>} />
-          <Route path="/diagnostico" element={<PrivatePage><Diagnostico /></PrivatePage>} />
-          <Route path="/clientes" element={<PrivatePage><Clientes /></PrivatePage>} />
+          <Route path="/diagnostico" element={<AdminPage><Diagnostico /></AdminPage>} />
+          <Route path="/clientes" element={<AdminPage><Clientes /></AdminPage>} />
           <Route path="/mapa" element={<PrivatePage><Mapa /></PrivatePage>} />
           <Route path="/gestao" element={<PrivatePage><Gestao /></PrivatePage>} />
-          <Route path="/whatsapp" element={<PrivatePage><Whatsapp /></PrivatePage>} />
+          <Route path="/whatsapp" element={<AdminPage><Whatsapp /></AdminPage>} />
+          <Route path="/usuarios" element={<AdminPage><Usuarios /></AdminPage>} />
+          <Route path="/quedas" element={<PrivatePage><Quedas /></PrivatePage>} />
+          <Route path="/saude" element={<PrivatePage><Saude /></PrivatePage>} />
+          <Route path="/ao-vivo" element={<PrivatePage><AoVivo /></PrivatePage>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

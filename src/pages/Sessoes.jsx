@@ -1,12 +1,14 @@
 import { useCallback, useState } from "react";
 
 import api from "../api/axios";
+import { useAuth } from "../context/useAuth";
 import usePolling from "../hooks/usePolling";
 import Cabecalho from "../components/Cabecalho";
 import TabelaSessoes from "../components/TabelaSessoes";
 import { confirmar } from "../utils/confirmar";
 
 export default function Sessoes() {
+  const { isAdmin } = useAuth();
   const [sessoes, setSessoes] = useState([]);
 
   const carregar = useCallback(async () => {
@@ -40,7 +42,7 @@ export default function Sessoes() {
     <div className="space-y-5 p-2 sm:p-4">
       <Cabecalho etiqueta="Operacao" titulo="Recargas" descricao="Ultimas 200 recargas de todos os carregadores." />
       <div className="app-panel p-2">
-        <TabelaSessoes sessoes={sessoes} onEncerrar={encerrar} />
+        <TabelaSessoes sessoes={sessoes} onEncerrar={isAdmin ? encerrar : undefined} />
       </div>
     </div>
   );

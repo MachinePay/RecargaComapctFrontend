@@ -13,7 +13,10 @@ function getSafeRedirect(search) {
 }
 
 export default function Login() {
-  const { login, user } = useAuth();
+  const { login, loginUsuario, user } = useAuth();
+  const [modoChave, setModoChave] = useState(false);
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
   const [chave, setChave] = useState("");
@@ -32,12 +35,23 @@ export default function Login() {
     setEntrando(true);
     setErro("");
     try {
-      // Confere a chave antes de guardar.
-      await api.get("/admin/resumo", { headers: { "X-Admin-Key": chave }, silencioso: true });
-      login(chave);
+      if (modoChave) {
+        // Confere a chave antes de guardar.
+        await api.get("/admin/resumo", { headers: { "X-Admin-Key": chave }, silencioso: true });
+        login(chave);
+      } else {
+        const { data } = await api.post("/auth/login", { email, senha }, { silencioso: true });
+        loginUsuario(data.token, data.usuario);
+      }
       navigate(redirectTo, { replace: true });
     } catch (error) {
-      setErro(error?.response?.status === 401 ? "Chave de administrador invalida." : error.compactpayMessage);
+      setErro(
+        error?.response?.status === 401
+          ? modoChave
+            ? "Chave de administrador invalida."
+            : "E-mail ou senha incorretos."
+          : error.compactpayMessage,
+      )
     } finally {
       setEntrando(false);
     }
@@ -89,26 +103,42 @@ export default function Login() {
               </div>
               <h2 className="mt-3 text-4xl font-extrabold tracking-[-0.04em] text-[var(--color-text)]">Entrar no painel</h2>
               <p className="mt-3 text-sm leading-6 text-[var(--color-text-soft)]">
-                Use a chave de administrador (ADMIN_API_KEY do backend).
+                {modoChave ? "Use a chave de administrador (ADMIN_API_KEY do servidor)." : "Entre com o e-mail e a senha do seu usuario."}
               </p>
             </div>
 
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--color-text)]">Chave de administrador</span>
-              <input
-                className="w-full rounded-[20px] border border-[var(--color-border)] bg-white px-4 py-4 text-[var(--color-text)] outline-none transition focus:border-[var(--color-primary)] focus:shadow-[0_0_0_4px_rgba(31,122,76,0.10)]"
-                type="password"
-                placeholder="Digite a chave"
-                value={chave}
-                onChange={(e) => setChave(e.target.value)}
-                required
-              />
-            </label>
+            {modoChave ? (
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-[var(--color-text)]">Chave de administrador</span>
+                <input className="w-full rounded-[20px] border border-[var(--color-border)] bg-white px-4 py-4 text-[var(--color-text)] outline-none transition focus:border-[var(--color-primary)] focus:shadow-[0_0_0_4px_rgba(31,122,76,0.10)]" type="password" placeholder="Digite a chave" value={chave} onChange={(e) => setChave(e.target.value)} required />
+              </label>
+            ) : (
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[var(--color-text)]">E-mail</span>
+                  <input className="w-full rounded-[20px] border border-[var(--color-border)] bg-white px-4 py-4 text-[var(--color-text)] outline-none transition focus:border-[var(--color-primary)] focus:shadow-[0_0_0_4px_rgba(31,122,76,0.10)]" type="email" autoComplete="username" placeholder="voce@empresa.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[var(--color-text)]">Senha</span>
+                  <input className="w-full rounded-[20px] border border-[var(--color-border)] bg-white px-4 py-4 text-[var(--color-text)] outline-none transition focus:border-[var(--color-primary)] focus:shadow-[0_0_0_4px_rgba(31,122,76,0.10)]" type="password" autoComplete="current-password" placeholder="Sua senha" value={senha} onChange={(e) => setSenha(e.target.value)} required />
+                </label>
+              </div>
+            )}
             {erro ? <div className="mt-3 text-sm font-semibold text-[var(--color-error)]">{erro}</div> : null}
 
             <Button type="submit" className="mt-6 w-full justify-center" disabled={entrando}>
               {entrando ? "Entrando..." : "Entrar no painel"}
             </Button>
+            <button
+              type="button"
+              onClick={() => {
+                setModoChave((v) => !v);
+                setErro("");
+              }}
+              className="mt-4 w-full text-center text-sm font-semibold text-[var(--color-text-soft)] hover:text-[var(--color-primary)]"
+            >
+              {modoChave ? "Entrar com e-mail e senha" : "Entrar com a chave de administrador"}
+            </button>
           </form>
         </section>
       </div>
