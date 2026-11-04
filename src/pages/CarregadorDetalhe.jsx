@@ -192,7 +192,13 @@ export default function CarregadorDetalhe() {
   };
 
   const abrirEdicao = async () => {
-    setEdicao({ nome_local: carregador.nome_local, connector_id: carregador.connector_id, ativo: carregador.ativo, cliente_id: carregador.cliente_id ?? "" });
+    setEdicao({
+      nome_local: carregador.nome_local,
+      connector_id: carregador.connector_id,
+      ativo: carregador.ativo,
+      cliente_id: carregador.cliente_id ?? "",
+      mp_terminal_id: carregador.mp_terminal_id || "",
+    });
     try {
       setClientes((await api.get("/admin/clientes")).data);
     } catch {
@@ -220,6 +226,7 @@ export default function CarregadorDetalhe() {
         connector_id: Number(edicao.connector_id) || 1,
         ativo: edicao.ativo,
         cliente_id: edicao.cliente_id ? Number(edicao.cliente_id) : null,
+        mp_terminal_id: (edicao.mp_terminal_id || "").trim() || null,
       });
       setEdicao(null);
       carregar();
@@ -723,6 +730,18 @@ export default function CarregadorDetalhe() {
                 <input className={campoClasse} type="number" min={1} value={edicao.connector_id} onChange={(e) => setEdicao({ ...edicao, connector_id: e.target.value })} />
               </label>
             </div>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold">Maquininha Mercado Pago (opcional)</span>
+              <input
+                className={`${campoClasse} font-mono`}
+                placeholder="Terminal/serie que aparece no Diagnostico"
+                value={edicao.mp_terminal_id}
+                onChange={(e) => setEdicao({ ...edicao, mp_terminal_id: e.target.value })}
+              />
+              <span className="mt-1 block text-xs text-[var(--color-text-soft)]">
+                So se o pagamento chegar sem loja/caixa: o Diagnostico mostra o codigo da maquininha para colar aqui.
+              </span>
+            </label>
             <p className="text-xs text-[var(--color-text-soft)]">Trocar de cliente apaga a loja e o caixa: a conta do Mercado Pago muda e e&apos; preciso criar de novo.</p>
             <label className="flex items-center gap-3 text-sm font-semibold">
               <input type="checkbox" checked={edicao.ativo} onChange={(e) => setEdicao({ ...edicao, ativo: e.target.checked })} />
