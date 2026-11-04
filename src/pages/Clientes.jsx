@@ -17,6 +17,9 @@ const formVazio = {
   cliente_mercado_pago: true,
   cliente_sumup: false,
   mp_access_token: "",
+  mp_public_key: "",
+  mp_client_id: "",
+  mp_client_secret: "",
   sumup_api_key: "",
   ativo: true,
 };
@@ -59,13 +62,14 @@ export default function Clientes() {
       ...formVazio,
       ...Object.fromEntries(Object.entries(cliente).map(([k, v]) => [k, v ?? ""])),
       mp_access_token: "",
+      mp_client_secret: "",
       sumup_api_key: "",
     });
 
   const salvar = async (event) => {
     event.preventDefault();
     setSalvando(true);
-    const { id, mp_access_token: token, sumup_api_key: chaveSumup, ...resto } = form;
+    const { id, mp_access_token: token, mp_client_secret: segredo, sumup_api_key: chaveSumup, ...resto } = form;
     if (!resto.cliente_mercado_pago && !resto.cliente_sumup) {
       setSalvando(false);
       return;
@@ -80,6 +84,10 @@ export default function Clientes() {
       cliente_sumup: resto.cliente_sumup,
       // Credencial so vai quando digitada: a salva nunca volta do servidor.
       ...(resto.cliente_mercado_pago && token.trim() ? { mp_access_token: token.trim() } : {}),
+      ...(resto.cliente_mercado_pago
+        ? { mp_public_key: resto.mp_public_key.trim() || null, mp_client_id: resto.mp_client_id.trim() || null }
+        : {}),
+      ...(resto.cliente_mercado_pago && segredo.trim() ? { mp_client_secret: segredo.trim() } : {}),
       ...(resto.cliente_sumup && chaveSumup.trim() ? { sumup_api_key: chaveSumup.trim() } : {}),
     };
     try {
@@ -233,6 +241,42 @@ export default function Clientes() {
                     onChange={(e) => setForm({ ...form, mp_access_token: e.target.value })}
                   />
                 </Campo>
+                <div className="mt-4 border-t border-[var(--color-border)] pt-3">
+                  <div className="text-sm font-semibold text-[var(--color-text)]">
+                    Outras credenciais <span className="font-normal text-[var(--color-text-soft)]">(opcional, ficam guardadas para usar depois)</span>
+                  </div>
+                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                    <Campo rotulo="Public Key">
+                      <input
+                        className={`${campoClasse} py-2 font-mono text-sm`}
+                        autoComplete="off"
+                        placeholder="APP_USR-..."
+                        value={form.mp_public_key}
+                        onChange={(e) => setForm({ ...form, mp_public_key: e.target.value })}
+                      />
+                    </Campo>
+                    <Campo rotulo="Client ID">
+                      <input
+                        className={`${campoClasse} py-2 font-mono text-sm`}
+                        autoComplete="off"
+                        value={form.mp_client_id}
+                        onChange={(e) => setForm({ ...form, mp_client_id: e.target.value })}
+                      />
+                    </Campo>
+                  </div>
+                  <div className="mt-3">
+                    <Campo rotulo="Client Secret" dica={form.id && form.tem_client_secret ? "Ja configurado. Deixe vazio para manter." : "Usado no \"Conectar Mercado Pago\" (OAuth), quando ativarmos."}>
+                      <input
+                        className={`${campoClasse} py-2 font-mono text-sm`}
+                        type="password"
+                        autoComplete="off"
+                        placeholder={form.id && form.tem_client_secret ? "••••••••••••" : ""}
+                        value={form.mp_client_secret}
+                        onChange={(e) => setForm({ ...form, mp_client_secret: e.target.value })}
+                      />
+                    </Campo>
+                  </div>
+                </div>
               </div>
             ) : null}
 
