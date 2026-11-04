@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Activity,
@@ -94,6 +94,9 @@ export default function CarregadorDetalhe() {
   const [simulacao, setSimulacao] = useState(null);
   const [local, setLocal] = useState(null);
   const [localErro, setLocalErro] = useState("");
+  // Nome atual da loja/caixa no Mercado Pago (para achar no app do MP).
+  const [nomesMp, setNomesMp] = useState(null);
+  const [renomeando, setRenomeando] = useState(false);
 
   const carregar = useCallback(async () => {
     try {
@@ -111,6 +114,19 @@ export default function CarregadorDetalhe() {
   }, [base, carregadorId]);
 
   usePolling(carregar, 4000, true, { imediato: true });
+
+  const posId = carregador?.mp_pos_id;
+  useEffect(() => {
+    if (!posId || !isAdmin) return undefined;
+    let cancelado = false;
+    api
+      .get(`${base}/mercado-pago/caixa`, { silencioso: true })
+      .then(({ data }) => !cancelado && setNomesMp(data))
+      .catch(() => !cancelado && setNomesMp({ loja: null, caixa: null }));
+    return () => {
+      cancelado = true;
+    };
+  }, [posId, isAdmin, base]);
 
   if (!carregador) return <LoadingSpinner className="min-h-[60vh]" />;
 
@@ -184,10 +200,22 @@ export default function CarregadorDetalhe() {
     }
   };
 
+  const renomearNoMp = async () => {
+    setRenomeando(true);
+    try {
+      const { data } = await api.post(`${base}/mercado-pago/renomear`);
+      setNomesMp(data);
+    } catch {
+      // Toast global
+    } finally {
+      setRenomeando(false);
+    }
+  };
+
   const salvarEdicao = async (event) => {
     event.preventDefault();
     try {
-      await api.patch(base, {
+      const { data } = await api.patch(base, {
         nome_local: edicao.nome_local,
         connector_id: Number(edicao.connector_id) || 1,
         ativo: edicao.ativo,
@@ -195,6 +223,8 @@ export default function CarregadorDetalhe() {
       });
       setEdicao(null);
       carregar();
+      if (data.aviso_mp) Swal.fire({ icon: "warning", title: "Mercado Pago", text: data.aviso_mp, confirmButtonColor: "#1f7a4c" });
+      else if (data.mp_pos_id && data.nome_local !== carregador.nome_local) setNomesMp({ loja: data.nome_local, caixa: data.nome_local });
     } catch {
       // Toast global
     }
@@ -504,10 +534,28 @@ export default function CarregadorDetalhe() {
             ) : carregador.mp_pos_id ? (
               <div className="space-y-1">
                 <div className="flex items-center gap-2 font-semibold text-[var(--color-success)]">
-                  <CircleCheck size={16} /> Loja {carregador.mp_store_id} · Caixa {carregador.mp_pos_external_id}
+                  <CircleCheck size={16} /> Loja e caixa criados no Mercado Pago
                 </div>
+                <div className="rounded-[12px] bg-[var(--color-bg-muted)] px-3 py-2 text-xs text-[var(--color-text)]">
+                  <div>
+                    Loja: <b>{nomesMp?.loja ?? "..."}</b> <span className="text-[var(--color-text-soft)]">(n. {carregador.mp_store_id})</span>
+                  </div>
+                  <div>
+                    Caixa: <b>{nomesMp?.caixa ?? "..."}</b> <span className="text-[var(--color-text-soft)]">(n. {carregador.mp_pos_id} · {carregador.mp_pos_external_id})</span>
+                  </div>
+                </div>
+                {isAdmin && nomesMp && (nomesMp.loja !== carregador.nome_local || nomesMp.caixa !== carregador.nome_local) ? (
+                  <button
+                    type="button"
+                    onClick={renomearNoMp}
+                    disabled={renomeando}
+                    className="pill-button px-3 py-1.5 text-xs font-semibold disabled:opacity-45"
+                  >
+                    {renomeando ? "Renomeando..." : `Renomear para "${carregador.nome_local}" no Mercado Pago`}
+                  </button>
+                ) : null}
                 <p className="text-xs text-[var(--color-text-soft)]">
-                  Vincule a maquininha a esta loja e caixa ({carregador.nome_local}). Qualquer pagamento aprovado nela libera o tempo; com o carro carregando, soma.
+                  No app do Mercado Pago: Seu negocio &gt; Lojas e caixas. Vincule a maquininha a esta loja e caixa; qualquer pagamento aprovado nela libera o tempo.
                 </p>
               </div>
             ) : (
