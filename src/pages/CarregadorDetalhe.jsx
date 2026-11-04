@@ -40,6 +40,9 @@ const COMANDOS_OCPP = {
   TriggerMessage: { requestedMessage: "StatusNotification", connectorId: 1 },
   UnlockConnector: { connectorId: 1 },
   Reset: { type: "Soft" },
+  // Parar carga que o carregador comecou sozinho (transactionId 0 = sem StartTransaction).
+  RemoteStopTransaction: { transactionId: 0 },
+  ChangeAvailability: { connectorId: 1, type: "Inoperative" },
 };
 
 const CATEGORIAS = {
