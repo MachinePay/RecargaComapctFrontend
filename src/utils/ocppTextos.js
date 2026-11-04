@@ -8,7 +8,7 @@ export const STATUS_CONECTOR = {
   SuspendedEVSE: "Pausado pelo carregador",
   Finishing: "Finalizando",
   Reserved: "Reservado",
-  Unavailable: "Indisponivel",
+  Unavailable: "Travado (aguardando pagamento)",
   Faulted: "Com defeito",
 };
 
