@@ -11,6 +11,7 @@ const CarregadorDetalhe = lazy(() => import("./pages/CarregadorDetalhe"));
 const Sessoes = lazy(() => import("./pages/Sessoes"));
 const Tablets = lazy(() => import("./pages/Tablets"));
 const Diagnostico = lazy(() => import("./pages/Diagnostico"));
+const Clientes = lazy(() => import("./pages/Clientes"));
 const Login = lazy(() => import("./pages/Login"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Totem = lazy(() => import("./pages/totem/Totem"));
@@ -53,6 +54,7 @@ export default function AppRoutes() {
           <Route path="/sessoes" element={<PrivatePage><Sessoes /></PrivatePage>} />
           <Route path="/tablets" element={<PrivatePage><Tablets /></PrivatePage>} />
           <Route path="/diagnostico" element={<PrivatePage><Diagnostico /></PrivatePage>} />
+          <Route path="/clientes" element={<PrivatePage><Clientes /></PrivatePage>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

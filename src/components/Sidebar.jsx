@@ -1,4 +1,4 @@
-import { BatteryCharging, Home, LogOut, Menu, MonitorSmartphone, PlugZap, Stethoscope, Tablet, X } from "lucide-react";
+import { BatteryCharging, Building2, Home, LogOut, Menu, MonitorSmartphone, PlugZap, Stethoscope, Tablet, X } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
@@ -26,6 +26,11 @@ export default function Sidebar() {
       <li>
         <NavLink to="/carregadores" className={linkClassName} onClick={closeMobile}>
           <PlugZap size={20} /> Carregadores
+        </NavLink>
+      </li>
+      <li>
+        <NavLink to="/clientes" className={linkClassName} onClick={closeMobile}>
+          <Building2 size={20} /> Clientes
         </NavLink>
       </li>
       <li>

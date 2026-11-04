@@ -76,6 +76,7 @@ export default function CarregadorDetalhe() {
   const [criandoCaixa, setCriandoCaixa] = useState(false);
   const [valorSimulado, setValorSimulado] = useState("10");
   const [simulacao, setSimulacao] = useState(null);
+  const [clientes, setClientes] = useState([]);
 
   const carregar = useCallback(async () => {
     try {
@@ -175,8 +176,7 @@ export default function CarregadorDetalhe() {
         mp_terminal_id: edicao.mp_terminal_id || null,
         connector_id: Number(edicao.connector_id) || 1,
         ativo: edicao.ativo,
-        // Token so vai se digitou um novo (o salvo nunca volta do servidor).
-        ...(edicao.mp_access_token ? { mp_access_token: edicao.mp_access_token.trim() } : {}),
+        cliente_id: edicao.cliente_id ? Number(edicao.cliente_id) : null,
       });
       setEdicao(null);
       carregar();
@@ -265,7 +265,14 @@ export default function CarregadorDetalhe() {
             <button
               type="button"
               className="pill-button inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold"
-              onClick={() => setEdicao({ ...carregador, mp_terminal_id: carregador.mp_terminal_id || "", mp_access_token: "" })}
+              onClick={async () => {
+                setEdicao({ ...carregador, mp_terminal_id: carregador.mp_terminal_id || "", cliente_id: carregador.cliente_id ?? "" });
+                try {
+                  setClientes((await api.get("/admin/clientes")).data);
+                } catch {
+                  // Toast global
+                }
+              }}
             >
               <Pencil size={16} /> Editar
             </button>
@@ -417,7 +424,7 @@ export default function CarregadorDetalhe() {
                 <p>Cria a loja e o caixa deste carregador na conta do Mercado Pago (igual ao cadastro de maquina da CompactPay).</p>
                 {!carregador.tem_token_mp ? (
                   <p className="rounded-[14px] bg-amber-50 p-3 text-amber-900">
-                    Falta o token do Mercado Pago: coloque o MP_ACCESS_TOKEN na Render ou o token deste carregador em Editar.
+                    Falta a conta do Mercado Pago: cadastre o dono em Clientes, com o Access Token, e escolha o cliente em Editar.
                   </p>
                 ) : null}
                 <Button onClick={criarCaixa} className="w-full justify-center" disabled={!carregador.tem_token_mp || criandoCaixa}>
@@ -493,16 +500,19 @@ export default function CarregadorDetalhe() {
               </label>
             </div>
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold">Access token do Mercado Pago (opcional)</span>
-              <input
-                className={campoClasse}
-                type="password"
-                autoComplete="off"
-                placeholder={carregador.tem_token_mp ? "Ja configurado (deixe vazio para manter)" : "APP_USR-..."}
-                value={edicao.mp_access_token}
-                onChange={(e) => setEdicao({ ...edicao, mp_access_token: e.target.value })}
-              />
-              <span className="mt-1 block text-xs text-[var(--color-text-soft)]">Vazio usa o MP_ACCESS_TOKEN do servidor.</span>
+              <span className="mb-2 block text-sm font-semibold">Cliente (dono)</span>
+              <select className={campoClasse} value={edicao.cliente_id ?? ""} onChange={(e) => setEdicao({ ...edicao, cliente_id: e.target.value })}>
+                <option value="">Sem cliente</option>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome_empresa}
+                    {c.tem_token_mp ? "" : " (sem token MP)"}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-xs text-[var(--color-text-soft)]">
+                Trocar de cliente apaga a loja e o caixa: a conta do Mercado Pago muda e e&apos; preciso criar de novo.
+              </span>
             </label>
             <label className="flex items-center gap-3 text-sm font-semibold">
               <input type="checkbox" checked={edicao.ativo} onChange={(e) => setEdicao({ ...edicao, ativo: e.target.checked })} />

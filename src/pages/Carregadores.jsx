@@ -12,7 +12,7 @@ import Modal from "../components/Modal";
 import { campoClasse } from "../utils/estilos";
 import { formatarDataHora } from "../utils/formatos";
 
-const formVazio = { id_hardware: "", nome_local: "", connector_id: 1, mp_terminal_id: "", gerar_senha_ocpp: false };
+const formVazio = { id_hardware: "", nome_local: "", cliente_id: "", connector_id: 1, mp_terminal_id: "", gerar_senha_ocpp: false };
 
 export default function Carregadores() {
   const navigate = useNavigate();
@@ -20,11 +20,13 @@ export default function Carregadores() {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(formVazio);
   const [salvando, setSalvando] = useState(false);
+  const [clientes, setClientes] = useState([]);
 
   const carregar = useCallback(async () => {
     try {
-      const { data } = await api.get("/admin/carregadores");
+      const [{ data }, c] = await Promise.all([api.get("/admin/carregadores"), api.get("/admin/clientes")]);
       setLista(data);
+      setClientes(c.data);
     } catch {
       // Toast global
     }
@@ -40,6 +42,7 @@ export default function Carregadores() {
         ...form,
         connector_id: Number(form.connector_id) || 1,
         mp_terminal_id: form.mp_terminal_id || null,
+        cliente_id: form.cliente_id ? Number(form.cliente_id) : null,
       });
       setModal(false);
       setForm(formVazio);
@@ -143,6 +146,19 @@ export default function Carregadores() {
           <label className="block">
             <span className="mb-2 block text-sm font-semibold">Nome do local</span>
             <input className={campoClasse} value={form.nome_local} onChange={(e) => setForm({ ...form, nome_local: e.target.value })} required />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold">Cliente (dono)</span>
+            <select className={campoClasse} value={form.cliente_id} onChange={(e) => setForm({ ...form, cliente_id: e.target.value })}>
+              <option value="">Sem cliente</option>
+              {clientes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome_empresa}
+                  {c.tem_token_mp ? "" : " (sem token MP)"}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-[var(--color-text-soft)]">A maquininha cobra na conta Mercado Pago deste cliente.</span>
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
