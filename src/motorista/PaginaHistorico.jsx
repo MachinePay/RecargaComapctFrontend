@@ -1,10 +1,11 @@
 // Historico do motorista: recargas pagas por este celular e os totais.
 import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { BatteryCharging, ChevronRight, Gauge, Leaf, Receipt, Zap } from "lucide-react";
+import { BatteryCharging, ChevronRight, CircleUserRound, Gauge, Leaf, Receipt, Zap } from "lucide-react";
 import usePolling from "../hooks/usePolling";
 import { formatarValor } from "../utils/formatos";
 import { apiPublica, dispositivo, mensagemErro } from "./servicos";
+import { useConta } from "./conta";
 import { duracao } from "./regras";
 import { Esqueleto, Logo, NavMotorista } from "./ui";
 
@@ -31,6 +32,7 @@ function situacaoDaRecarga(r) {
 export default function PaginaHistorico() {
   const [dados, setDados] = useState(null);
   const [erro, setErro] = useState("");
+  const conta = useConta();
 
   const carregar = useCallback(async () => {
     try {
@@ -71,7 +73,19 @@ export default function PaginaHistorico() {
         </header>
 
         <h1 className="mt-7 text-[30px] font-extrabold leading-tight tracking-[-0.04em]">Suas recargas</h1>
-        <p className="mt-1 text-[13px] font-semibold text-[var(--mt-text-soft)]">Tudo o que voce carregou pagando por este celular.</p>
+        <p className="mt-1 text-[13px] font-semibold text-[var(--mt-text-soft)]">
+          {conta ? `Tudo o que voce carregou, ${conta.motorista.nome.split(" ")[0]}.` : "Tudo o que voce carregou pagando por este celular."}
+        </p>
+        {!conta && (
+          <Link to="/app/conta" className="mt-4 flex items-center gap-3 rounded-[20px] border border-[var(--mt-accent)]/30 bg-[var(--mt-accent)]/10 px-4 py-3">
+            <CircleUserRound size={20} className="shrink-0 text-[var(--mt-accent)]" />
+            <span className="flex-1 text-[13px] font-semibold text-[var(--mt-text-soft)]">
+              <span className="block text-[14px] font-extrabold text-[var(--mt-text)]">Entre para nao perder seu historico</span>
+              As recargas deste celular vao para a sua conta.
+            </span>
+            <ChevronRight size={18} className="text-[var(--mt-text-soft)]" />
+          </Link>
+        )}
 
         {erro && (
           <p className="mt-4 rounded-2xl border border-[var(--mt-defeito)]/40 bg-[var(--mt-defeito)]/10 px-3 py-2.5 text-[13px] font-semibold text-[var(--mt-defeito)]">{erro}</p>
@@ -141,7 +155,9 @@ export default function PaginaHistorico() {
             ))}
 
             <p className="mt-8 text-center text-[12px] font-semibold text-[var(--mt-text-faint)]">
-              O historico fica guardado neste celular e navegador. Se limpar os dados do navegador, ele recomeca.
+              {conta
+                ? "Seu historico fica na sua conta: entre em qualquer celular para ver."
+                : "Sem conta, o historico fica neste celular e navegador. Se limpar os dados do navegador, ele recomeca."}
             </p>
           </>
         )}

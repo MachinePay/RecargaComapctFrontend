@@ -26,6 +26,7 @@ const PaginaCarregar = lazy(() => import("./motorista/PaginaCarregar"));
 const EntradaQr = lazy(() => import("./motorista/PaginaCarregar").then((m) => ({ default: m.EntradaQr })));
 const PaginaRecarga = lazy(() => import("./motorista/PaginaRecarga"));
 const PaginaHistorico = lazy(() => import("./motorista/PaginaHistorico"));
+const PaginaConta = lazy(() => import("./motorista/PaginaConta"));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -38,6 +39,13 @@ function PrivateRoute({ children }) {
 function AdminPage({ children }) {
   const { isAdmin } = useAuth();
   return <PrivatePage>{isAdmin ? children : <Navigate to="/dashboard" replace />}</PrivatePage>;
+}
+
+// Raiz do site: quem esta logado no painel vai para o dashboard; o resto
+// (motorista, app instalado) cai no mapa.
+function Inicio() {
+  const { user } = useAuth();
+  return <Navigate to={user ? "/dashboard" : "/app"} replace />;
 }
 
 function RouteFallback() {
@@ -64,8 +72,9 @@ export default function AppRoutes() {
           <Route path="/app/carregar" element={<PaginaCarregar />} />
           <Route path="/app/recarga/:cobrancaId" element={<PaginaRecarga />} />
           <Route path="/app/historico" element={<PaginaHistorico />} />
+          <Route path="/app/conta" element={<PaginaConta />} />
 
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Inicio />} />
           <Route path="/dashboard" element={<PrivatePage><Dashboard /></PrivatePage>} />
           <Route path="/carregadores" element={<PrivatePage><Carregadores /></PrivatePage>} />
           <Route path="/carregadores/:carregadorId" element={<PrivatePage><CarregadorDetalhe /></PrivatePage>} />

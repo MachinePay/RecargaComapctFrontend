@@ -1,6 +1,9 @@
 // Pecas de tela do app do motorista (selo de status, logo, navegacao).
+import { useEffect } from "react";
 import { NavLink } from "react-router-dom";
-import { History, Map, Zap } from "lucide-react";
+import { CircleUserRound, History, Map, Zap } from "lucide-react";
+import { useConta } from "./conta";
+import { conferirConta } from "./servicos";
 import { SITUACOES } from "./regras";
 import "./motorista.css";
 
@@ -29,7 +32,11 @@ export function Logo({ className = "" }) {
 }
 
 export function NavMotorista() {
+  const conta = useConta();
   const classe = ({ isActive }) => (isActive ? "ativo" : "");
+  useEffect(() => {
+    conferirConta();
+  }, []);
   return (
     <nav className="mt-nav mt-glass">
       <NavLink to="/app" end className={classe}>
@@ -37,6 +44,9 @@ export function NavMotorista() {
       </NavLink>
       <NavLink to="/app/historico" className={classe}>
         <History size={18} /> Historico
+      </NavLink>
+      <NavLink to="/app/conta" className={classe}>
+        <CircleUserRound size={18} /> {conta ? conta.motorista.nome.split(" ")[0].slice(0, 10) : "Entrar"}
       </NavLink>
     </nav>
   );

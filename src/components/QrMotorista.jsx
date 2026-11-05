@@ -6,10 +6,20 @@ import { Copy, Download, ExternalLink, TriangleAlert } from "lucide-react";
 
 const linkDoQr = (idHardware) => `${window.location.origin}/c/${encodeURIComponent(idHardware)}`;
 
-// Cartaz pronto para imprimir: titulo, QR grande e o nome do carregador.
-function desenharCartaz(qr, nome) {
+function carregarImagem(src) {
+  return new Promise((resolve, reject) => {
+    const imagem = new Image();
+    imagem.onload = () => resolve(imagem);
+    imagem.onerror = reject;
+    imagem.src = src;
+  });
+}
+
+// Cartaz pronto para imprimir: titulo, QR grande, o nome do carregador e,
+// no rodape, a logo com o nome CompactRecarga.
+function desenharCartaz(qr, nome, logo) {
   const largura = 1200;
-  const altura = 1650;
+  const altura = 1800;
   const canvas = document.createElement("canvas");
   canvas.width = largura;
   canvas.height = altura;
@@ -36,7 +46,29 @@ function desenharCartaz(qr, nome) {
   ctx.fillText(nome.length > 28 ? `${nome.slice(0, 27)}…` : nome, largura / 2, 1400);
   ctx.fillStyle = "#93a89d";
   ctx.font = "600 34px 'Plus Jakarta Sans', sans-serif";
-  ctx.fillText("CompactRecarga · veja todos os carregadores no mapa", largura / 2, 1480);
+  ctx.fillText("Veja todos os carregadores no mapa do app", largura / 2, 1470);
+
+  // Rodape: faixa branca (a logo tem fundo branco) com simbolo + nome.
+  const faixa = { largura: 720, altura: 170, y: 1560 };
+  const faixaX = (largura - faixa.largura) / 2;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.roundRect(faixaX, faixa.y, faixa.largura, faixa.altura, 85);
+  ctx.fill();
+  const ladoLogo = 130;
+  const logoX = faixaX + 40;
+  if (logo) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(logo, logoX, faixa.y + (faixa.altura - ladoLogo) / 2, ladoLogo, ladoLogo);
+  }
+  ctx.textAlign = "left";
+  const textoX = logo ? logoX + ladoLogo + 28 : faixaX + 60;
+  ctx.fillStyle = "#145233";
+  ctx.font = "800 62px 'Plus Jakarta Sans', sans-serif";
+  ctx.fillText("CompactRecarga", textoX, faixa.y + 92);
+  ctx.fillStyle = "#1f7a4c";
+  ctx.font = "600 30px 'Plus Jakarta Sans', sans-serif";
+  ctx.fillText("Recarga de carro eletrico", textoX, faixa.y + 136);
   return canvas;
 }
 
@@ -45,8 +77,10 @@ export default function QrMotorista({ carregador }) {
   const [copiado, setCopiado] = useState(false);
   const link = linkDoQr(carregador.id_hardware);
 
-  const baixar = () => {
-    const canvas = desenharCartaz(qrRef.current, carregador.nome_local);
+  const baixar = async () => {
+    // Sem a logo (falhou ao carregar) o cartaz sai so com o nome.
+    const logo = await carregarImagem("/logo-simbolo.png").catch(() => null);
+    const canvas = desenharCartaz(qrRef.current, carregador.nome_local, logo);
     const a = document.createElement("a");
     a.href = canvas.toDataURL("image/png");
     a.download = `qr-${carregador.id_hardware}.png`;

@@ -3,11 +3,13 @@
 // atualizar esta tela leva para o mapa.
 import { useCallback, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BatteryCharging, Clock, LoaderCircle, MapPin, Plug, QrCode, Zap } from "lucide-react";
+import { ArrowLeft, BatteryCharging, CircleUserRound, Clock, History, LoaderCircle, MapPin, Plug, QrCode, X, Zap } from "lucide-react";
 import usePolling from "../hooks/usePolling";
 import { formatarValor } from "../utils/formatos";
 import { apiPublica, carregadorLido, dispositivo, guardarCarregadorDoQr, lembrarRecarga, mensagemErro } from "./servicos";
 import { SITUACOES, duracao, horaDaqui, restante, textoSituacao, useAgora } from "./regras";
+import { useConta } from "./conta";
+import FormConta from "./FormConta";
 import { Esqueleto, Logo, SeloSituacao } from "./ui";
 
 export function EntradaQr() {
@@ -36,6 +38,9 @@ export default function PaginaCarregar() {
   const [gerando, setGerando] = useState(false);
   const [erroPix, setErroPix] = useState("");
   const iniciouRef = useRef(false);
+  const conta = useConta();
+  // Sem login: antes de pagar pergunta se quer entrar (ou segue sem conta).
+  const [perguntarConta, setPerguntarConta] = useState(false);
 
   const carregar = useCallback(async () => {
     if (!id) return;
@@ -71,6 +76,11 @@ export default function PaginaCarregar() {
     } finally {
       setGerando(false);
     }
+  };
+
+  const pagar = () => {
+    if (conta) gerarPix();
+    else setPerguntarConta(true);
   };
 
   const valor = valorDe(c, minutos);
@@ -186,7 +196,12 @@ export default function PaginaCarregar() {
                 )}
 
                 <div className="sticky bottom-0 mt-auto pt-5" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-                  <button type="button" onClick={gerarPix} disabled={gerando || valor < 1} className="mt-btn mt-btn--primario w-full py-4 text-[17px]">
+                  {conta && (
+                    <p className="mb-2 flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-[var(--mt-text-soft)]">
+                      <CircleUserRound size={14} className="text-[var(--mt-accent)]" /> Pagando como {conta.motorista.nome.split(" ")[0]}
+                    </p>
+                  )}
+                  <button type="button" onClick={pagar} disabled={gerando || valor < 1} className="mt-btn mt-btn--primario w-full py-4 text-[17px]">
                     {gerando ? <LoaderCircle size={20} className="animate-spin" /> : <Zap size={20} fill="currentColor" />}
                     {gerando ? "Gerando o Pix..." : `Pagar ${formatarValor(valor)} com Pix`}
                   </button>
@@ -196,6 +211,60 @@ export default function PaginaCarregar() {
               <Indisponivel c={c} segundos={restante(c.segundos_para_liberar, recebidoEm, agora)} agora={agora} onMapa={() => navigate("/app")} />
             )}
           </>
+        )}
+      </div>
+
+      {perguntarConta && (
+        <PerguntaConta
+          valor={valor}
+          onFechar={() => setPerguntarConta(false)}
+          onSeguir={() => {
+            setPerguntarConta(false);
+            gerarPix();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PerguntaConta({ valor, onFechar, onSeguir }) {
+  const [entrando, setEntrando] = useState(false);
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-end bg-black/60 backdrop-blur-sm" onClick={onFechar}>
+      <div
+        className="mt-entrar mx-auto max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[28px] border border-[var(--mt-border)] bg-[var(--mt-surface-strong)] px-5 pt-5"
+        style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom))" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[20px] font-extrabold leading-tight tracking-[-0.02em]">Quer entrar na sua conta?</p>
+            <p className="mt-1 text-[13px] font-semibold text-[var(--mt-text-soft)]">
+              Com conta, esta recarga fica salva no seu historico em qualquer celular.
+            </p>
+          </div>
+          <button type="button" onClick={onFechar} aria-label="Fechar" className="mt-btn mt-btn--fantasma h-9 w-9 shrink-0">
+            <X size={17} />
+          </button>
+        </div>
+
+        {entrando ? (
+          <div className="mt-5">
+            <FormConta onPronto={onSeguir} />
+          </div>
+        ) : (
+          <div className="mt-5 space-y-2.5">
+            <button type="button" onClick={() => setEntrando(true)} className="mt-btn mt-btn--primario w-full py-3.5 text-[16px]">
+              <CircleUserRound size={18} /> Entrar ou criar conta
+            </button>
+            <button type="button" onClick={onSeguir} className="mt-btn mt-btn--fantasma w-full py-3.5 text-[15px]">
+              Continuar sem login e pagar {formatarValor(valor)}
+            </button>
+            <p className="flex items-center justify-center gap-1.5 pt-1 text-center text-[12px] font-semibold text-[var(--mt-text-faint)]">
+              <History size={13} /> Sem login, o historico fica so neste celular.
+            </p>
+          </div>
         )}
       </div>
     </div>

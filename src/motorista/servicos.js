@@ -1,9 +1,27 @@
 // API publica do app do motorista, celular anonimo e conta de distancia.
 import axios from "axios";
 import { API_BASE_URL, getApiErrorMessage } from "../api/axios";
+import { contaAtual, sairDaConta } from "./conta";
 
-// Sem login e sem os interceptors do painel (nada de redirecionar para /login).
+// Sem os interceptors do painel (nada de redirecionar para /login). A conta do
+// motorista e' opcional: logado, o token vai junto.
 export const apiPublica = axios.create({ baseURL: `${API_BASE_URL}/publico`, timeout: 20000 });
+
+apiPublica.interceptors.request.use((config) => {
+  const conta = contaAtual();
+  if (conta?.token) config.headers.Authorization = `Bearer ${conta.token}`;
+  return config;
+});
+
+// Uma vez por abertura do app: login vencido ou conta desativada sai sozinho.
+let contaConferida = false;
+export function conferirConta() {
+  if (contaConferida || !contaAtual()) return;
+  contaConferida = true;
+  apiPublica.get("/eu").catch((e) => {
+    if (e.response?.status === 401) sairDaConta();
+  });
+}
 
 export const mensagemErro = (erro) => getApiErrorMessage(erro, "Nao foi possivel falar com o servidor. Tente de novo.");
 
