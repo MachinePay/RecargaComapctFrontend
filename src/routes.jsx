@@ -20,6 +20,12 @@ const Saude = lazy(() => import("./pages/Saude"));
 const AoVivo = lazy(() => import("./pages/AoVivo"));
 const Login = lazy(() => import("./pages/Login"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+// App do motorista (publico, sem login): QR code do carregador, mapa e historico.
+const PaginaMapa = lazy(() => import("./motorista/PaginaMapa"));
+const PaginaCarregar = lazy(() => import("./motorista/PaginaCarregar"));
+const EntradaQr = lazy(() => import("./motorista/PaginaCarregar").then((m) => ({ default: m.EntradaQr })));
+const PaginaRecarga = lazy(() => import("./motorista/PaginaRecarga"));
+const PaginaHistorico = lazy(() => import("./motorista/PaginaHistorico"));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -53,6 +59,11 @@ export default function AppRoutes() {
         <Routes>
           <Route path="/login" element={<Login />} />
 
+          <Route path="/c/:carregadorId" element={<EntradaQr />} />
+          <Route path="/app" element={<PaginaMapa />} />
+          <Route path="/app/carregar" element={<PaginaCarregar />} />
+          <Route path="/app/recarga/:cobrancaId" element={<PaginaRecarga />} />
+          <Route path="/app/historico" element={<PaginaHistorico />} />
 
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<PrivatePage><Dashboard /></PrivatePage>} />

@@ -1,0 +1,482 @@
+/* App do motorista: tema proprio (escuro, "eletrico"), separado do painel.
+   Tudo fica debaixo de .mt-app para nao vazar no painel. */
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap");
+
+:root {
+  --mt-bg: #070d0b;
+  --mt-bg-2: #0c1613;
+  --mt-surface: rgba(17, 27, 23, 0.82);
+  --mt-surface-strong: #13201b;
+  --mt-surface-soft: rgba(255, 255, 255, 0.04);
+  --mt-border: rgba(255, 255, 255, 0.08);
+  --mt-border-strong: rgba(255, 255, 255, 0.16);
+  --mt-text: #eaf6ef;
+  --mt-text-soft: #93a89d;
+  --mt-text-faint: #5f7369;
+  --mt-accent: #44e08a;
+  --mt-accent-strong: #1fbf68;
+  --mt-accent-ink: #04140b;
+  --mt-cyan: #38d6f0;
+  --mt-livre: #44e08a;
+  --mt-ocupado: #fbbf24;
+  --mt-reservado: #a78bfa;
+  --mt-offline: #6b7c74;
+  --mt-defeito: #f87171;
+  --mt-usuario: #4f8cff;
+  --mt-nav-altura: 68px;
+}
+
+html:has(.mt-app) {
+  background: var(--mt-bg);
+}
+
+.mt-app {
+  min-height: 100dvh;
+  color: var(--mt-text);
+  background:
+    radial-gradient(120% 60% at 100% 0%, rgba(68, 224, 138, 0.1), transparent 60%),
+    radial-gradient(90% 50% at 0% 100%, rgba(56, 214, 240, 0.07), transparent 60%),
+    var(--mt-bg);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mt-app button {
+  min-height: 0;
+}
+
+.mt-num {
+  font-family: "Space Grotesk", "Plus Jakarta Sans", sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.mt-glass {
+  background: var(--mt-surface);
+  border: 1px solid var(--mt-border);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+.mt-card {
+  background: var(--mt-surface-strong);
+  border: 1px solid var(--mt-border);
+  border-radius: 22px;
+}
+
+.mt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  transition:
+    transform 0.15s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.mt-btn:active {
+  transform: scale(0.97);
+}
+
+.mt-btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.mt-btn--primario {
+  background: linear-gradient(135deg, #5af09c 0%, var(--mt-accent-strong) 100%);
+  color: var(--mt-accent-ink);
+  box-shadow:
+    0 10px 30px rgba(68, 224, 138, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.mt-btn--waze {
+  background: #33ccff;
+  color: #04202b;
+  box-shadow: 0 10px 26px rgba(51, 204, 255, 0.25);
+}
+
+.mt-btn--fantasma {
+  background: var(--mt-surface-soft);
+  color: var(--mt-text);
+  border: 1px solid var(--mt-border-strong);
+}
+
+.mt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--mt-surface-soft);
+  border: 1px solid var(--mt-border);
+  color: var(--mt-text-soft);
+  white-space: nowrap;
+}
+
+.mt-ponto {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: none;
+  background: currentColor;
+}
+
+.mt-ponto--vivo {
+  box-shadow: 0 0 0 0 currentColor;
+  animation: mt-pulso-ponto 1.8s ease-out infinite;
+}
+
+@keyframes mt-pulso-ponto {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+/* ---- Navegacao de baixo ---- */
+.mt-nav {
+  position: fixed;
+  left: 50%;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 1200;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 999px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+}
+
+.mt-nav a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mt-text-soft);
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.mt-nav a.ativo {
+  background: var(--mt-accent);
+  color: var(--mt-accent-ink);
+}
+
+/* ---- Mapa ---- */
+.mt-mapa.leaflet-container {
+  background: #0b1210;
+  font-family: inherit;
+}
+
+.mt-mapa .leaflet-control-attribution {
+  background: rgba(7, 13, 11, 0.7) !important;
+  color: var(--mt-text-faint) !important;
+  font-size: 10px;
+}
+
+.mt-mapa .leaflet-control-attribution a {
+  color: var(--mt-text-soft) !important;
+}
+
+.mt-pin {
+  position: relative;
+  width: 44px;
+  height: 52px;
+  --cor: var(--mt-livre);
+  transition: transform 0.2s ease;
+}
+
+.mt-pin.is-sel {
+  transform: scale(1.18);
+  z-index: 10;
+}
+
+.mt-pin__corpo {
+  position: absolute;
+  left: 4px;
+  top: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50% 50% 50% 6px;
+  transform: rotate(-45deg);
+  background: var(--cor);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+}
+
+.mt-pin__corpo svg {
+  transform: rotate(45deg);
+  width: 18px;
+  height: 18px;
+  color: #06150d;
+}
+
+.mt-pin__halo {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border-radius: 999px;
+  background: var(--cor);
+  opacity: 0;
+}
+
+.mt-pin--livre .mt-pin__halo {
+  animation: mt-halo 2.2s ease-out infinite;
+}
+
+@keyframes mt-halo {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.mt-pin__chip {
+  position: absolute;
+  left: 50%;
+  top: -22px;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font: 700 11px/1.4 "Space Grotesk", system-ui, sans-serif;
+  white-space: nowrap;
+  color: #06150d;
+  background: var(--cor);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.mt-pin__estrela {
+  position: absolute;
+  right: -4px;
+  top: -4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  color: #06150d;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.mt-pin--livre {
+  --cor: var(--mt-livre);
+}
+.mt-pin--ocupado {
+  --cor: var(--mt-ocupado);
+}
+.mt-pin--reservado {
+  --cor: var(--mt-reservado);
+}
+.mt-pin--offline {
+  --cor: var(--mt-offline);
+}
+.mt-pin--defeito {
+  --cor: var(--mt-defeito);
+}
+
+.mt-voce {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.mt-voce::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 999px;
+  background: var(--mt-usuario);
+  opacity: 0.25;
+  animation: mt-halo 2.4s ease-out infinite;
+}
+
+.mt-voce::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--mt-usuario);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- Folha de baixo (lista sobre o mapa) ---- */
+.mt-folha {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  border-radius: 28px 28px 0 0;
+  padding-bottom: calc(var(--mt-nav-altura) + 18px + env(safe-area-inset-bottom));
+  transition: max-height 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.mt-folha__alca {
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--mt-border-strong);
+  margin: 10px auto 6px;
+}
+
+@media (min-width: 1024px) {
+  .mt-folha {
+    top: 88px;
+    left: 16px;
+    right: auto;
+    bottom: 16px;
+    width: 410px;
+    max-height: none !important;
+    border-radius: 28px;
+    padding-bottom: 16px;
+  }
+
+  .mt-folha__alca {
+    display: none;
+  }
+
+  .mt-nav {
+    left: auto;
+    right: 16px;
+    top: 16px;
+    bottom: auto;
+    transform: none;
+  }
+}
+
+/* ---- Recarga ---- */
+.mt-anel {
+  transform: rotate(-90deg);
+}
+
+.mt-anel circle {
+  transition: stroke-dashoffset 1s linear;
+}
+
+.mt-brilho {
+  animation: mt-brilho 2.4s ease-in-out infinite;
+}
+
+@keyframes mt-brilho {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px rgba(68, 224, 138, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 18px rgba(68, 224, 138, 0.75));
+  }
+}
+
+.mt-raio {
+  animation: mt-raio 1.4s ease-in-out infinite;
+}
+
+@keyframes mt-raio {
+  0%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.55;
+    transform: translateY(-3px);
+  }
+}
+
+.mt-entrar {
+  animation: mt-entrar 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes mt-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mt-faixa {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--mt-accent) var(--p, 0%), rgba(255, 255, 255, 0.1) var(--p, 0%));
+  outline: none;
+}
+
+.mt-faixa::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #fff;
+  border: 6px solid var(--mt-accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+}
+
+.mt-faixa::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  border: 6px solid var(--mt-accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+}
+
+.mt-esqueleto {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: mt-esqueleto 1.3s linear infinite;
+  border-radius: 14px;
+}
+
+@keyframes mt-esqueleto {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mt-app *,
+  .mt-app *::before,
+  .mt-app *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

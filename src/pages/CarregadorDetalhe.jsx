@@ -25,6 +25,7 @@ import Badge from "../components/Badge";
 import Button from "../components/Button";
 import LoadingSpinner from "../components/LoadingSpinner";
 import MapaLeaflet from "../components/MapaLeaflet";
+import QrMotorista from "../components/QrMotorista";
 import Modal from "../components/Modal";
 import TabelaSessoes from "../components/TabelaSessoes";
 import { BarraConexao, CartaoResumo, InfoPill, StatusCarregador } from "../components/CarregadorUi";
@@ -760,6 +761,10 @@ export default function CarregadorDetalhe() {
             />
           </div>
         </div>
+      </Painel>
+
+      <Painel id="qr-motorista" titulo="QR code do motorista">
+        <QrMotorista carregador={carregador} />
       </Painel>
 
       <section className="app-panel p-4 sm:p-5">
