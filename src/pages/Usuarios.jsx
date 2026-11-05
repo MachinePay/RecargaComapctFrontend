@@ -61,7 +61,7 @@ export default function Usuarios() {
         titulo="Usuarios"
         descricao="Quem entra no painel. Administrador ve e mexe em tudo; usuario de cliente ve so os carregadores do cliente dele."
         acoes={
-          <Button onClick={() => setForm({ ...formVazio, cliente_id: clientes.length === 1 ? String(clientes[0].id) : "" })}>
+          <Button onClick={() => setForm({ ...formVazio })}>
             <Plus size={18} /> Novo usuario
           </Button>
         }
@@ -189,17 +189,11 @@ export default function Usuarios() {
               </div>
             </div>
             {form.role === "cliente" ? (
-              <label className="block">
-                <span className="mb-2 block text-sm font-semibold">Cliente</span>
-                <select className={campoClasse} value={form.cliente_id} onChange={(e) => setForm({ ...form, cliente_id: e.target.value })} required>
-                  <option value="">Selecione o cliente</option>
-                  {clientes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nome_empresa}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="rounded-[18px] bg-[var(--color-primary-soft)] px-4 py-3 text-sm text-[var(--color-text)]">
+                {form.cliente_id
+                  ? <>Dono dos carregadores: <b>{clientes.find((c) => String(c.id) === String(form.cliente_id))?.nome_empresa || form.cliente_nome || "cliente"}</b>.</>
+                  : <>Ja cria o cliente <b>{form.nome || "com esse nome"}</b> (dono dos carregadores). Os bancos e credenciais voce configura em Clientes.</>}
+              </div>
             ) : null}
             {form.id ? (
               <label className="flex items-center gap-3 text-sm font-semibold">
