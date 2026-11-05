@@ -9,6 +9,7 @@ import usePolling from "../hooks/usePolling";
 import { formatarKwh, formatarRelogio, formatarValor } from "../utils/formatos";
 import { apiPublica, dispositivo, esquecerRecarga, guardarCarregadorDoQr, lembrarRecarga, mensagemErro } from "./servicos";
 import { duracao, horaDaqui, restante, useAgora } from "./regras";
+import AvisoInstalar from "./AvisoInstalar";
 import { Esqueleto, Logo } from "./ui";
 
 const MOTIVOS_MOTORISTA = {
@@ -321,6 +322,7 @@ function TelaSessao({ cobranca, sessao, recebidoEm, agora }) {
             ["Valor", formatarValor(cobranca.valor)],
           ]}
         />
+        <AvisoInstalar className="mt-4 text-left" />
         <Link to="/app/historico" className="mt-btn mt-btn--primario mt-4 w-full py-3.5">
           <History size={18} /> Ver meu historico
         </Link>

@@ -1,0 +1,17 @@
+{
+  "id": "/app",
+  "name": "CompactRecarga",
+  "short_name": "Recarga",
+  "description": "Ache um carregador livre, pague com Pix e acompanhe a recarga do seu carro eletrico.",
+  "lang": "pt-BR",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070d0b",
+  "theme_color": "#070d0b",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

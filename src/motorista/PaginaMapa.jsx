@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { BatteryCharging, ChevronRight, Clock, Crosshair, LoaderCircle, LocateFixed, MapPin, Navigation, QrCode, Route, X, Zap } from "lucide-react";
 import usePolling from "../hooks/usePolling";
+import AvisoInstalar from "./AvisoInstalar";
 import MapaMotorista from "./MapaMotorista";
 import {
   apiPublica,
@@ -270,6 +271,8 @@ export default function PaginaMapa() {
               {erro && <p className="mt-3 rounded-2xl border border-[var(--mt-defeito)]/40 bg-[var(--mt-defeito)]/10 px-3 py-2 text-[13px] font-semibold text-[var(--mt-defeito)]">{erro}</p>}
 
               <AvisoLocalizacao estado={estadoLocal} onLigar={ligarLocalizacao} />
+
+              <AvisoInstalar className="mt-3" />
 
               {maisPerto && filtro === "todos" && <CartaoMaisPerto c={maisPerto} onAbrir={() => selecionar(maisPerto.id)} />}
 

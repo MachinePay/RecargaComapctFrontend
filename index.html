@@ -8,7 +8,22 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#1f7a4c" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Recarga" />
     <title>CompactRecarga</title>
+    <script>
+      // App do motorista (/app e o QR /c/...): manifest proprio, que abre no
+      // mapa, e a cor escura. Precisa estar antes do navegador ler o manifest.
+      if (/^\/(app|c)(\/|$)/.test(location.pathname)) {
+        document.querySelector('link[rel="manifest"]').href = "/manifest-motorista.webmanifest";
+        document.querySelector('meta[name="theme-color"]').content = "#070d0b";
+        var barra = document.createElement("meta");
+        barra.name = "apple-mobile-web-app-status-bar-style";
+        barra.content = "black-translucent";
+        document.head.appendChild(barra);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

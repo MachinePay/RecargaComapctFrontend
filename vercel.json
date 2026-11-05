@@ -1,7 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/((?!assets/|favicon-32.png|favicon-48.png|apple-touch-icon.png|icon-192.png|icon-512.png|logo-simbolo.png|logo-completo.png|logo-compactrecarga.jpeg|manifest.webmanifest).*)",
+      "source": "/((?!assets/|favicon-32.png|favicon-48.png|apple-touch-icon.png|icon-192.png|icon-512.png|logo-simbolo.png|logo-completo.png|logo-compactrecarga.jpeg|manifest.webmanifest|manifest-motorista.webmanifest|sw-motorista.js).*)",
       "destination": "/index.html"
     }
   ]
