@@ -101,6 +101,10 @@ export default function CarregadorDetalhe() {
   // Nome atual da loja/caixa no Mercado Pago (para achar no app do MP).
   const [nomesMp, setNomesMp] = useState(null);
   const [renomeando, setRenomeando] = useState(false);
+  // Corrente maxima: null = mostra a salva no carregador.
+  const [corrente, setCorrente] = useState(null);
+  const [correnteMsg, setCorrenteMsg] = useState(null);
+  const [aplicandoCorrente, setAplicandoCorrente] = useState(false);
 
   const carregar = useCallback(async () => {
     try {
@@ -207,6 +211,28 @@ export default function CarregadorDetalhe() {
       setClientes((await api.get("/admin/clientes")).data);
     } catch {
       // Toast global
+    }
+  };
+
+  const aplicarCorrente = async () => {
+    setAplicandoCorrente(true);
+    setCorrenteMsg(null);
+    try {
+      const { data } = await api.post(`${base}/corrente`, { amperes: Number(corrente) }, { silencioso: true });
+      const status = data.resposta?.status;
+      setCorrenteMsg(
+        status === "Accepted"
+          ? { ok: true, texto: `Aplicado: ${corrente} A.` }
+          : { ok: false, texto: `O carregador respondeu ${status || "sem status"}: este firmware pode nao aceitar mudar a corrente.` },
+      );
+      if (status === "Accepted") {
+        setCorrente(null);
+        carregar();
+      }
+    } catch (error) {
+      setCorrenteMsg({ ok: false, texto: error.compactpayMessage || "Falhou" });
+    } finally {
+      setAplicandoCorrente(false);
     }
   };
 
@@ -488,6 +514,61 @@ export default function CarregadorDetalhe() {
             <InfoPill rotulo="Modelo">{[carregador.vendor, carregador.modelo].filter(Boolean).join(" ") || "-"}</InfoPill>
             <InfoPill rotulo="Firmware">{carregador.firmware_version || "-"}</InfoPill>
           </div>
+          {isAdmin ? (
+            <div className="mt-3 rounded-[18px] border border-[var(--color-border)] bg-white p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm font-semibold text-[var(--color-text)]">Corrente maxima</div>
+                <div className="text-xs text-[var(--color-text-soft)]">
+                  Atual: {carregador.corrente_maxima_a != null ? `${carregador.corrente_maxima_a} A` : "a do aparelho"}
+                </div>
+              </div>
+              {(() => {
+                const valor = corrente ?? carregador.corrente_maxima_a ?? 32;
+                return (
+                  <>
+                    <div className="mt-2 flex items-center gap-3">
+                      <input
+                        type="range"
+                        min={0}
+                        max={32}
+                        step={1}
+                        value={valor}
+                        onChange={(e) => setCorrente(Number(e.target.value))}
+                        className="flex-1 accent-[var(--color-primary)]"
+                        aria-label="Corrente maxima em amperes"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={32}
+                        value={valor}
+                        onChange={(e) => setCorrente(Math.max(0, Math.min(32, Number(e.target.value) || 0)))}
+                        className="w-16 rounded-[12px] border border-[var(--color-border)] px-2 py-1.5 text-center font-bold tabular-nums"
+                      />
+                      <span className="text-sm font-semibold text-[var(--color-text-soft)]">A</span>
+                      <button
+                        type="button"
+                        onClick={aplicarCorrente}
+                        disabled={corrente === null || aplicandoCorrente || !carregador.online}
+                        className="pill-button pill-button--primary px-4 py-1.5 text-sm font-semibold disabled:opacity-45"
+                      >
+                        {aplicandoCorrente ? "Aplicando..." : "Aplicar"}
+                      </button>
+                    </div>
+                    <div className="mt-1 text-xs text-[var(--color-text-soft)]">
+                      ≈ {((valor * 220) / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kW em 220 V.
+                      {valor > 0 && valor < 6 ? " Abaixo de 6 A o carro nao carrega (minimo da norma)." : ""}
+                      {valor === 0 ? " 0 A = carregador sem liberar energia." : ""}
+                      {!carregador.online ? " Carregador offline: aplique quando ele conectar." : ""}
+                    </div>
+                  </>
+                );
+              })()}
+              {correnteMsg ? (
+                <div className={`mt-2 text-xs font-semibold ${correnteMsg.ok ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>{correnteMsg.texto}</div>
+              ) : null}
+            </div>
+          ) : null}
         </Painel>
 
         <Painel
