@@ -6,6 +6,7 @@ import usePolling from "../hooks/usePolling";
 import Cabecalho from "../components/Cabecalho";
 import TabelaSessoes from "../components/TabelaSessoes";
 import { confirmar } from "../utils/confirmar";
+import { estornarRecarga } from "../utils/estornar";
 
 export default function Sessoes() {
   const { isAdmin } = useAuth();
@@ -42,7 +43,11 @@ export default function Sessoes() {
     <div className="space-y-5 p-2 sm:p-4">
       <Cabecalho etiqueta="Operacao" titulo="Recargas" descricao="Ultimas 200 recargas de todos os carregadores." />
       <div className="app-panel p-2">
-        <TabelaSessoes sessoes={sessoes} onEncerrar={isAdmin ? encerrar : undefined} />
+        <TabelaSessoes
+          sessoes={sessoes}
+          onEncerrar={isAdmin ? encerrar : undefined}
+          onEstornar={isAdmin ? async (s) => (await estornarRecarga(s)) && carregar() : undefined}
+        />
       </div>
     </div>
   );

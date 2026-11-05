@@ -30,6 +30,7 @@ import TabelaSessoes from "../components/TabelaSessoes";
 import { BarraConexao, CartaoResumo, InfoPill, StatusCarregador } from "../components/CarregadorUi";
 import { STATUS_CARREGADOR, lerCoordenadas, qualidadeConexao, statusCarregador, textoConector } from "../utils/carregadores";
 import { confirmar } from "../utils/confirmar";
+import { estornarRecarga } from "../utils/estornar";
 import { campoClasse } from "../utils/estilos";
 import { STATUS_SESSAO, formatarDataHora, formatarKwh, formatarMinutos, formatarRelogio, formatarValor } from "../utils/formatos";
 
@@ -699,7 +700,12 @@ export default function CarregadorDetalhe() {
           ))}
         </div>
         {aba === "recargas" ? (
-          <TabelaSessoes sessoes={sessoes} mostrarCarregador={false} onEncerrar={isAdmin ? encerrar : undefined} />
+          <TabelaSessoes
+            sessoes={sessoes}
+            mostrarCarregador={false}
+            onEncerrar={isAdmin ? encerrar : undefined}
+            onEstornar={isAdmin ? async (s) => (await estornarRecarga(s)) && carregar() : undefined}
+          />
         ) : (
           <ul className="max-h-[420px] overflow-y-auto text-sm">
             {historico.map((h, i) => (

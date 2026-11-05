@@ -5,7 +5,7 @@ import { MOTIVOS_FIM, STATUS_SESSAO, formatarDataHora, formatarKwh, formatarValo
 
 const ATIVAS = ["aguardando_inicio", "aguardando_carro", "carregando", "encerrando"];
 
-export default function TabelaSessoes({ sessoes, mostrarCarregador = true, onEncerrar }) {
+export default function TabelaSessoes({ sessoes, mostrarCarregador = true, onEncerrar, onEstornar }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[820px] text-left text-sm">
@@ -59,6 +59,15 @@ export default function TabelaSessoes({ sessoes, mostrarCarregador = true, onEnc
                       className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-[var(--color-error)] hover:bg-rose-100"
                     >
                       Encerrar
+                    </button>
+                  ) : null}
+                  {onEstornar && !ATIVAS.includes(s.status) && s.valor > 0 && !s.estornada ? (
+                    <button
+                      type="button"
+                      onClick={() => onEstornar(s)}
+                      className="rounded-full border border-[var(--color-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--color-text)] hover:border-amber-300 hover:bg-amber-50"
+                    >
+                      Estornar
                     </button>
                   ) : null}
                 </td>
