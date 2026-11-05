@@ -21,6 +21,8 @@ const formVazio = {
   mp_client_id: "",
   mp_client_secret: "",
   sumup_api_key: "",
+  acesso_email: "",
+  acesso_senha: "",
   ativo: true,
 };
 
@@ -64,12 +66,14 @@ export default function Clientes() {
       mp_access_token: "",
       mp_client_secret: "",
       sumup_api_key: "",
+      acesso_email: cliente.acessos?.[0] || "",
+      acesso_senha: "",
     });
 
   const salvar = async (event) => {
     event.preventDefault();
     setSalvando(true);
-    const { id, mp_access_token: token, mp_client_secret: segredo, sumup_api_key: chaveSumup, ...resto } = form;
+    const { id, mp_access_token: token, mp_client_secret: segredo, sumup_api_key: chaveSumup, acesso_email: loginEmail, acesso_senha: loginSenha, ...resto } = form;
     if (!resto.cliente_mercado_pago && !resto.cliente_sumup) {
       setSalvando(false);
       return;
@@ -89,6 +93,8 @@ export default function Clientes() {
         : {}),
       ...(resto.cliente_mercado_pago && segredo.trim() ? { mp_client_secret: segredo.trim() } : {}),
       ...(resto.cliente_sumup && chaveSumup.trim() ? { sumup_api_key: chaveSumup.trim() } : {}),
+      // Login no painel: so vai com senha digitada (na edicao, vazia = manter).
+      ...(loginSenha ? { acesso_email: loginEmail.trim(), acesso_senha: loginSenha } : {}),
     };
     try {
       if (id) await api.patch(`/admin/clientes/${id}`, corpo);
@@ -131,6 +137,9 @@ export default function Clientes() {
                 <td className="px-4 py-3">
                   <div className="font-bold text-[var(--color-text)]">{c.nome_empresa}</div>
                   <div className="text-xs text-[var(--color-text-soft)]">{[c.email_contato, c.telefone].filter(Boolean).join(" · ") || "-"}</div>
+                  <div className={`text-xs font-semibold ${c.acessos?.length ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
+                    {c.acessos?.length ? `Login: ${c.acessos.join(", ")}` : "Sem login no painel"}
+                  </div>
                 </td>
                 <td className="space-y-1 px-4 py-3">
                   {c.cliente_mercado_pago ? (
@@ -186,6 +195,35 @@ export default function Clientes() {
               <Campo rotulo="CPF / CNPJ">
                 <input className={campoClasse} value={form.documento} onChange={(e) => setForm({ ...form, documento: e.target.value })} />
               </Campo>
+            </div>
+
+            <div className="rounded-[18px] border border-[var(--color-border)] bg-white p-3">
+              <div className="text-sm font-semibold">Login do cliente no painel</div>
+              <div className="mb-2 text-xs text-[var(--color-text-soft)]">
+                {form.id && form.acessos?.length
+                  ? "Ja tem login. Digite uma senha nova so se quiser trocar."
+                  : "Opcional. Com e-mail e senha o cliente entra e ve so os carregadores dele (aparece em Usuarios)."}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  className={campoClasse}
+                  type="email"
+                  placeholder="E-mail de login"
+                  value={form.acesso_email}
+                  onChange={(e) => setForm({ ...form, acesso_email: e.target.value })}
+                  required={Boolean(form.acesso_senha)}
+                />
+                <input
+                  className={campoClasse}
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={6}
+                  placeholder={form.id && form.acessos?.length ? "Nova senha (vazio = manter)" : "Senha (minimo 6)"}
+                  value={form.acesso_senha}
+                  onChange={(e) => setForm({ ...form, acesso_senha: e.target.value })}
+                  required={Boolean(form.acesso_email) && !form.acessos?.length}
+                />
+              </div>
             </div>
 
             <div>

@@ -119,6 +119,27 @@ export default function Usuarios() {
         </table>
       </div>
 
+      {clientes.some((c) => !c.acessos?.length) ? (
+        <div className="app-panel p-4">
+          <div className="text-sm font-semibold text-[var(--color-text)]">Clientes sem login no painel</div>
+          <div className="mb-3 text-xs text-[var(--color-text-soft)]">Cliente e a empresa dona dos carregadores; para ela entrar no painel, crie um usuario.</div>
+          <div className="flex flex-wrap gap-2">
+            {clientes
+              .filter((c) => !c.acessos?.length)
+              .map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setForm({ ...formVazio, nome: c.nome_empresa, email: c.email_contato || "", cliente_id: String(c.id) })}
+                  className="pill-button inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"
+                >
+                  <Plus size={14} /> Criar login para {c.nome_empresa}
+                </button>
+              ))}
+          </div>
+        </div>
+      ) : null}
+
       <Modal open={Boolean(form)} onClose={() => setForm(null)}>
         {form ? (
           <form onSubmit={salvar} className="space-y-4">
