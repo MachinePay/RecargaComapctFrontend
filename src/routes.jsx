@@ -18,6 +18,7 @@ const Usuarios = lazy(() => import("./pages/Usuarios"));
 const Quedas = lazy(() => import("./pages/Quedas"));
 const Saude = lazy(() => import("./pages/Saude"));
 const AoVivo = lazy(() => import("./pages/AoVivo"));
+const Vouchers = lazy(() => import("./pages/Vouchers"));
 const Login = lazy(() => import("./pages/Login"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 // App do motorista (publico, sem login): QR code do carregador, mapa e historico.
@@ -27,6 +28,7 @@ const EntradaQr = lazy(() => import("./motorista/PaginaCarregar").then((m) => ({
 const PaginaRecarga = lazy(() => import("./motorista/PaginaRecarga"));
 const PaginaHistorico = lazy(() => import("./motorista/PaginaHistorico"));
 const PaginaConta = lazy(() => import("./motorista/PaginaConta"));
+const PaginaVoucher = lazy(() => import("./motorista/PaginaVoucher"));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -73,6 +75,7 @@ export default function AppRoutes() {
           <Route path="/app/recarga/:cobrancaId" element={<PaginaRecarga />} />
           <Route path="/app/historico" element={<PaginaHistorico />} />
           <Route path="/app/conta" element={<PaginaConta />} />
+          <Route path="/v/:codigo" element={<PaginaVoucher />} />
 
           <Route path="/" element={<Inicio />} />
           <Route path="/dashboard" element={<PrivatePage><Dashboard /></PrivatePage>} />
@@ -88,6 +91,7 @@ export default function AppRoutes() {
           <Route path="/quedas" element={<PrivatePage><Quedas /></PrivatePage>} />
           <Route path="/saude" element={<PrivatePage><Saude /></PrivatePage>} />
           <Route path="/ao-vivo" element={<PrivatePage><AoVivo /></PrivatePage>} />
+          <Route path="/vouchers" element={<PrivatePage><Vouchers /></PrivatePage>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
