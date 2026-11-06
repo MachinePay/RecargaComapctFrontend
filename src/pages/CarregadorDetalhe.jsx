@@ -27,11 +27,11 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import MapaLeaflet from "../components/MapaLeaflet";
 import QrMotorista from "../components/QrMotorista";
 import Modal from "../components/Modal";
-import TabelaSessoes from "../components/TabelaSessoes";
+import HistoricoCarregador from "../components/HistoricoCarregador";
+import ListaRecargas from "../components/ListaRecargas";
 import { BarraConexao, CartaoResumo, InfoPill, StatusCarregador } from "../components/CarregadorUi";
 import { STATUS_CARREGADOR, lerCoordenadas, qualidadeConexao, statusCarregador, textoConector } from "../utils/carregadores";
 import { confirmar } from "../utils/confirmar";
-import { estornarRecarga } from "../utils/estornar";
 import { campoClasse } from "../utils/estilos";
 import { STATUS_SESSAO, formatarDataHora, formatarKwh, formatarMinutos, formatarRelogio, formatarValor } from "../utils/formatos";
 
@@ -83,8 +83,7 @@ export default function CarregadorDetalhe() {
   const navigate = useNavigate();
   const base = `/admin/carregadores/${encodeURIComponent(carregadorId)}`;
   const [carregador, setCarregador] = useState(null);
-  const [sessoes, setSessoes] = useState([]);
-  const [historico, setHistorico] = useState([]);
+  const [totalRecargas, setTotalRecargas] = useState(null);
   const [aba, setAba] = useState("recargas");
 
   const [edicao, setEdicao] = useState(null);
@@ -109,18 +108,13 @@ export default function CarregadorDetalhe() {
 
   const carregar = useCallback(async () => {
     try {
-      const [c, s, h] = await Promise.all([
-        api.get(base),
-        api.get("/admin/sessoes", { params: { carregador_id: carregadorId, limite: 30 } }),
-        api.get(`${base}/historico`, { params: { limite: 80 } }),
-      ]);
-      setCarregador(c.data);
-      setSessoes(s.data);
-      setHistorico(h.data);
+      // Recargas e historico sao paginados nos proprios componentes.
+      const { data } = await api.get(base);
+      setCarregador(data);
     } catch {
       // Toast global
     }
-  }, [base, carregadorId]);
+  }, [base]);
 
   usePolling(carregar, 4000, true, { imediato: true });
 
@@ -770,7 +764,7 @@ export default function CarregadorDetalhe() {
       <section className="app-panel p-4 sm:p-5">
         <div className="mb-3 flex gap-2">
           {[
-            ["recargas", `Recargas (${sessoes.length})`],
+            ["recargas", totalRecargas != null ? `Recargas (${totalRecargas.toLocaleString("pt-BR")})` : "Recargas"],
             ["historico", "Historico"],
           ].map(([chave, texto]) => (
             <button
@@ -786,24 +780,9 @@ export default function CarregadorDetalhe() {
           ))}
         </div>
         {aba === "recargas" ? (
-          <TabelaSessoes
-            sessoes={sessoes}
-            mostrarCarregador={false}
-            onEncerrar={isAdmin ? encerrar : undefined}
-            onEstornar={isAdmin ? async (s) => (await estornarRecarga(s)) && carregar() : undefined}
-          />
+          <ListaRecargas carregadorId={carregadorId} porPagina={15} onTotal={setTotalRecargas} />
         ) : (
-          <ul className="max-h-[420px] overflow-y-auto text-sm">
-            {historico.map((h, i) => (
-              <li key={`${h.created_at}-${i}`} className="flex flex-wrap items-center gap-3 border-b border-[var(--color-border)] py-2">
-                <span className="w-[110px] shrink-0 tabular-nums text-xs text-[var(--color-text-soft)]">{formatarDataHora(h.created_at)}</span>
-                <Badge tom={CATEGORIAS[h.categoria]}>{h.categoria}</Badge>
-                <span className={`min-w-0 flex-1 ${/ALERTA|FALHOU|ATENCAO/.test(h.descricao) ? "font-semibold text-[var(--color-error)]" : ""}`}>{h.descricao}</span>
-                {h.valor ? <span className="font-semibold">{formatarValor(h.valor)}</span> : null}
-              </li>
-            ))}
-            {historico.length === 0 ? <li className="py-6 text-center text-[var(--color-text-soft)]">Nada registrado ainda.</li> : null}
-          </ul>
+          <HistoricoCarregador carregadorId={carregadorId} />
         )}
       </section>
 
