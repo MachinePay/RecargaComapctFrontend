@@ -1,9 +1,11 @@
-// Mapa escuro do motorista (Leaflet puro, igual o MapaLeaflet do painel):
-// pino com raio colorido pelo status, tempo para liberar no balaozinho e o
+// Mapa escuro do motorista em Leaflet (igual o MapaLeaflet do painel), com o
+// fundo da Esri: e' o mapa usado sem chave do Google (ver MapaGoogle.jsx).
+// Pino com raio colorido pelo status, tempo para liberar no balaozinho e o
 // ponto azul de "voce esta aqui".
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { HTML_VOCE, htmlPino } from "./pinos";
 
 // Fundo escuro da Esri (sem chave; o CARTO passou a exigir). A base vai ate o
 // zoom 16 e o Leaflet amplia dali; os nomes de ruas vem numa camada por cima.
@@ -13,27 +15,11 @@ const CAMADAS = [
   { url: `${ESRI}/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}`, opcoes: { maxZoom: 19, maxNativeZoom: 16, pane: "shadowPane" } },
 ];
 
-const RAIO = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.2c-.4.5 0 1.3.6 1.3H11l-1 7.5 8.5-11.2c.4-.5 0-1.3-.6-1.3H12l1-7.5Z"/></svg>`;
-
-const escapar = (texto) =>
-  String(texto ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
-
-function iconePino({ situacao, chip, selecionado, maisPerto }) {
-  return L.divIcon({
-    className: "",
-    iconSize: [44, 52],
-    iconAnchor: [22, 50],
-    html: `
-      <div class="mt-pin mt-pin--${situacao}${selecionado ? " is-sel" : ""}">
-        <div class="mt-pin__halo"></div>
-        <div class="mt-pin__corpo">${RAIO}</div>
-        ${chip ? `<div class="mt-pin__chip">${escapar(chip)}</div>` : ""}
-        ${maisPerto ? `<div class="mt-pin__estrela">★</div>` : ""}
-      </div>`,
-  });
+function iconePino(ponto) {
+  return L.divIcon({ className: "", iconSize: [44, 52], iconAnchor: [22, 50], html: htmlPino(ponto) });
 }
 
-const iconeVoce = L.divIcon({ className: "", iconSize: [20, 20], iconAnchor: [10, 10], html: `<div class="mt-voce"></div>` });
+const iconeVoce = L.divIcon({ className: "", iconSize: [20, 20], iconAnchor: [10, 10], html: HTML_VOCE });
 
 /**
  * pontos: [{ id, latitude, longitude, situacao, chip, maisPerto }]

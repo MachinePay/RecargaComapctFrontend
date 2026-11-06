@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { BatteryCharging, ChevronRight, Clock, Crosshair, LoaderCircle, LocateFixed, MapPin, Navigation, QrCode, Route, X, Zap } from "lucide-react";
 import usePolling from "../hooks/usePolling";
 import AvisoInstalar from "./AvisoInstalar";
-import MapaMotorista from "./MapaMotorista";
+import MapaEscolhido from "./MapaEscolhido";
 import {
   apiPublica,
   dispositivo,
@@ -194,7 +194,7 @@ export default function PaginaMapa() {
 
   return (
     <div className="mt-app relative h-[100dvh] overflow-hidden">
-      <MapaMotorista
+      <MapaEscolhido
         pontos={pontosEstaveis}
         usuario={usuario}
         selecionado={selecionado}
