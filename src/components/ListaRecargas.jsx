@@ -63,7 +63,7 @@ export default function ListaRecargas({ carregadorId, porPagina = 25, onTotal })
   useEffect(() => {
     if (carregadorId) return;
     api
-      .get("/admin/carregadores")
+      .get("/admin/carregadores/opcoes")
       .then(({ data }) => setCarregadores(data))
       .catch(() => {});
   }, [carregadorId]);

@@ -1,9 +1,12 @@
-import { useCallback, useState } from "react";
+import { useEffect, useState } from "react";
 import { Ban, Check, Copy, Gift, MessageCircle, Plus } from "lucide-react";
 
 import api from "../api/axios";
 import { useAuth } from "../context/useAuth";
-import usePolling from "../hooks/usePolling";
+import useAtrasado from "../hooks/useAtrasado";
+import useListaPaginada from "../hooks/useListaPaginada";
+import CampoBusca from "../components/CampoBusca";
+import Paginacao from "../components/Paginacao";
 import Badge from "../components/Badge";
 import Button from "../components/Button";
 import Cabecalho from "../components/Cabecalho";
@@ -41,24 +44,21 @@ function expiraEm({ validade, data }) {
 
 export default function Vouchers() {
   const { isAdmin } = useAuth();
-  const [lista, setLista] = useState([]);
+  const [busca, setBusca] = useState("");
+  const [situacao, setSituacao] = useState("");
+  const { dados, itens: lista, setPagina, recarregar: carregar } = useListaPaginada("/admin/vouchers", { busca: useAtrasado(busca), situacao });
   const [carregadores, setCarregadores] = useState([]);
   const [form, setForm] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [copiado, setCopiado] = useState(null);
 
-  const carregar = useCallback(async () => {
-    try {
-      // O servidor ja filtra: cliente recebe so os vouchers e carregadores dele.
-      const [v, c] = await Promise.all([api.get("/admin/vouchers"), api.get("/admin/carregadores")]);
-      setLista(v.data);
-      setCarregadores(c.data);
-    } catch {
-      // Toast global
-    }
+  // O servidor ja filtra: cliente recebe so os vouchers e carregadores dele.
+  useEffect(() => {
+    api
+      .get("/admin/carregadores/opcoes")
+      .then(({ data }) => setCarregadores(data))
+      .catch(() => {});
   }, []);
-
-  usePolling(carregar, 30000, true, { imediato: true });
 
   const salvar = async (event) => {
     event.preventDefault();
@@ -129,6 +129,16 @@ export default function Vouchers() {
         }
       />
 
+      <div className="flex flex-wrap items-center gap-2">
+        <CampoBusca valor={busca} onMudar={setBusca} placeholder="Buscar pelo nome ou codigo do voucher..." />
+        <select className="rounded-full border border-[var(--color-border)] bg-white px-4 py-2.5 text-sm outline-none" value={situacao} onChange={(e) => setSituacao(e.target.value)}>
+          <option value="">Todas as situacoes</option>
+          <option value="validos">Validos (ativos e usados)</option>
+          <option value="vencidos">Vencidos</option>
+          <option value="cancelados">Cancelados</option>
+        </select>
+      </div>
+
       <div className="app-panel overflow-x-auto p-2">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-soft)]">
@@ -191,12 +201,13 @@ export default function Vouchers() {
               <tr>
                 <td colSpan={5} className="px-4 py-10 text-center text-[var(--color-text-soft)]">
                   <Gift size={28} className="mx-auto mb-2" />
-                  Nenhum voucher ainda. Crie um e mande o link para quem vai carregar.
+                  {busca || situacao ? "Nenhum voucher com esse filtro." : "Nenhum voucher ainda. Crie um e mande o link para quem vai carregar."}
                 </td>
               </tr>
             ) : null}
           </tbody>
         </table>
+        <Paginacao dados={dados} onPagina={setPagina} />
       </div>
 
       <Modal open={Boolean(form)} onClose={() => setForm(null)}>

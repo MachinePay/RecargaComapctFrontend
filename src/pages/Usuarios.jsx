@@ -2,7 +2,11 @@ import { useCallback, useState } from "react";
 import { Pencil, Plus, ShieldCheck, UserRound } from "lucide-react";
 
 import api from "../api/axios";
+import useAtrasado from "../hooks/useAtrasado";
+import useListaPaginada from "../hooks/useListaPaginada";
 import usePolling from "../hooks/usePolling";
+import CampoBusca from "../components/CampoBusca";
+import Paginacao from "../components/Paginacao";
 import Badge from "../components/Badge";
 import Button from "../components/Button";
 import Cabecalho from "../components/Cabecalho";
@@ -13,22 +17,31 @@ import { formatarDataHora } from "../utils/formatos";
 const formVazio = { nome: "", email: "", senha: "", role: "cliente", cliente_id: "", ativo: true };
 
 export default function Usuarios() {
-  const [lista, setLista] = useState([]);
+  const [busca, setBusca] = useState("");
+  const [role, setRole] = useState("");
+  const { dados, itens: lista, setPagina, recarregar } = useListaPaginada("/admin/usuarios", { busca: useAtrasado(busca), role });
+  // Leves: nomes para a edicao e os clientes ainda sem login (no maximo 20).
   const [clientes, setClientes] = useState([]);
+  const [semLogin, setSemLogin] = useState([]);
   const [form, setForm] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
-  const carregar = useCallback(async () => {
+  const carregarClientes = useCallback(async () => {
     try {
-      const [u, c] = await Promise.all([api.get("/admin/usuarios"), api.get("/admin/clientes")]);
-      setLista(u.data);
+      const [c, s] = await Promise.all([api.get("/admin/clientes/opcoes"), api.get("/admin/clientes/opcoes", { params: { sem_login: true } })]);
       setClientes(c.data);
+      setSemLogin(s.data);
     } catch {
       // Toast global
     }
   }, []);
 
-  usePolling(carregar, 30000, true, { imediato: true });
+  usePolling(carregarClientes, 60000, true, { imediato: true });
+
+  const carregar = () => {
+    recarregar();
+    carregarClientes();
+  };
 
   const salvar = async (event) => {
     event.preventDefault();
@@ -66,6 +79,15 @@ export default function Usuarios() {
           </Button>
         }
       />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <CampoBusca valor={busca} onMudar={setBusca} placeholder="Buscar por nome ou e-mail..." />
+        <select className="rounded-full border border-[var(--color-border)] bg-white px-4 py-2.5 text-sm outline-none" value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="">Todos os acessos</option>
+          <option value="admin">Administradores</option>
+          <option value="cliente">Clientes</option>
+        </select>
+      </div>
 
       <div className="app-panel overflow-x-auto p-2">
         <table className="w-full min-w-[680px] text-left text-sm">
@@ -111,22 +133,21 @@ export default function Usuarios() {
             {lista.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-[var(--color-text-soft)]">
-                  Nenhum usuario ainda. Crie o primeiro administrador com e-mail e senha.
+                  {busca || role ? "Nenhum usuario com esse filtro." : "Nenhum usuario ainda. Crie o primeiro administrador com e-mail e senha."}
                 </td>
               </tr>
             ) : null}
           </tbody>
         </table>
+        <Paginacao dados={dados} onPagina={setPagina} />
       </div>
 
-      {clientes.some((c) => !c.acessos?.length) ? (
+      {semLogin.length ? (
         <div className="app-panel p-4">
           <div className="text-sm font-semibold text-[var(--color-text)]">Clientes sem login no painel</div>
           <div className="mb-3 text-xs text-[var(--color-text-soft)]">Cliente e a empresa dona dos carregadores; para ela entrar no painel, crie um usuario.</div>
           <div className="flex flex-wrap gap-2">
-            {clientes
-              .filter((c) => !c.acessos?.length)
-              .map((c) => (
+            {semLogin.map((c) => (
                 <button
                   key={c.id}
                   type="button"

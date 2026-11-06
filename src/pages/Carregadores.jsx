@@ -1,17 +1,19 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BatteryCharging, Map, MapPin, PlugZap, Plus, Search, Stethoscope, Wallet } from "lucide-react";
 import Swal from "sweetalert2";
 
 import api from "../api/axios";
 import { useAuth } from "../context/useAuth";
+import useAtrasado from "../hooks/useAtrasado";
 import usePolling from "../hooks/usePolling";
 import Button from "../components/Button";
 import Cabecalho from "../components/Cabecalho";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Modal from "../components/Modal";
+import Paginacao from "../components/Paginacao";
 import { BarraConexao, CabecalhoOrdenavel, CartaoResumo, InfoPill, StatusCarregador } from "../components/CarregadorUi";
-import { STATUS_CARREGADOR, combinaBusca, ordenar, proximaOrdem, statusCarregador, textoConector } from "../utils/carregadores";
+import { STATUS_CARREGADOR, proximaOrdem, statusCarregador, textoConector } from "../utils/carregadores";
 import { campoClasse } from "../utils/estilos";
 import { formatarDataHora, formatarKwh, formatarRelogio, formatarValor } from "../utils/formatos";
 
@@ -69,9 +71,12 @@ function Atividade({ c }) {
 export default function Carregadores() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
-  const [lista, setLista] = useState(null);
+  // Pagina aberta vinda do servidor: { itens, total, contagem, resumo, ... }.
+  const [dados, setDados] = useState(null);
+  const [pagina, setPagina] = useState(1);
   const [clientes, setClientes] = useState([]);
   const [busca, setBusca] = useState("");
+  const buscaAplicada = useAtrasado(busca);
   const [clienteFiltro, setClienteFiltro] = useState("");
   const [chip, setChip] = useState("todos");
   const [ordem, setOrdem] = useState({ coluna: "status", direcao: "asc" });
@@ -82,33 +87,57 @@ export default function Carregadores() {
   const [pareamento, setPareamento] = useState({ codigo: "", nome: "", enviando: false });
   const [cepAchado, setCepAchado] = useState(null);
 
-  const carregar = useCallback(async () => {
-    try {
-      const [{ data }, c] = await Promise.all([api.get("/admin/carregadores"), api.get("/admin/clientes")]);
-      setLista(data);
-      setClientes(c.data);
-    } catch {
-      setLista((atual) => atual || []);
-    }
+  // Clientes so para o filtro e o cadastro (lista leve).
+  useEffect(() => {
+    api
+      .get("/admin/clientes/opcoes")
+      .then(({ data }) => setClientes(data))
+      .catch(() => {});
   }, []);
 
-  usePolling(carregar, 5000, true, { imediato: true });
+  // Busca, filtro, ordem e pagina no servidor: so a pagina aberta vem.
+  const carregar = useCallback(async () => {
+    try {
+      const { data } = await api.get("/admin/carregadores", {
+        params: {
+          pagina,
+          por_pagina: 25,
+          busca: buscaAplicada || undefined,
+          cliente_id: clienteFiltro || undefined,
+          status: chip === "todos" ? undefined : chip,
+          ordem: ordem?.coluna,
+          direcao: ordem?.direcao,
+        },
+      });
+      setDados(data);
+    } catch {
+      setDados((atual) => atual || { itens: [], total: 0, contagem: {}, resumo: {} });
+    }
+  }, [pagina, buscaAplicada, clienteFiltro, chip, ordem]);
 
-  if (lista === null) return <LoadingSpinner className="min-h-[60vh]" />;
+  // Filtro mudou: busca na hora (timer: setState fora do corpo do efeito).
+  useEffect(() => {
+    const timer = window.setTimeout(carregar, 0);
+    return () => window.clearTimeout(timer);
+  }, [carregar]);
+
+  usePolling(carregar, 5000);
+
+  // Filtro novo volta para a primeira pagina.
+  useEffect(() => {
+    const timer = window.setTimeout(() => setPagina(1), 0);
+    return () => window.clearTimeout(timer);
+  }, [buscaAplicada, clienteFiltro, chip, ordem]);
+
+  if (dados === null) return <LoadingSpinner className="min-h-[60vh]" />;
 
   const abrir = (c) => navigate(`/carregadores/${encodeURIComponent(c.id_hardware)}`);
   const ordenarPor = (coluna) => setOrdem(proximaOrdem(ordem, coluna));
 
-  const doCliente = lista.filter((c) => (clienteFiltro ? String(c.cliente_id) === clienteFiltro : true) && combinaBusca(c, busca));
-  const contagem = doCliente.reduce((acc, c) => ({ ...acc, [statusCarregador(c)]: (acc[statusCarregador(c)] || 0) + 1 }), {});
-  const visiveis = ordenar(
-    doCliente.filter((c) => chip === "todos" || statusCarregador(c) === chip),
-    ordem,
-  );
-  const online = lista.filter((c) => c.online).length;
-  const carregando = lista.filter((c) => c.sessao_ativa).length;
-  const faturamento = lista.reduce((t, c) => t + (c.faturamento_hoje || 0), 0);
-  const vendas = lista.reduce((t, c) => t + (c.vendas_hoje || 0), 0);
+  const visiveis = dados.itens;
+  const contagem = dados.contagem || {};
+  const resumo = dados.resumo || {};
+  const cadastrados = resumo.cadastrados || 0;
 
   const clienteEscolhido = clientes.find((c) => String(c.id) === String(form.cliente_id));
   const bancosDoCliente = clienteEscolhido?.bancos || [];
@@ -230,10 +259,10 @@ export default function Carregadores() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <CartaoResumo rotulo="Cadastrados" valor={lista.length} ajuda={`${lista.length - online} offline`} Icone={PlugZap} />
-        <CartaoResumo rotulo="Online agora" valor={online} ajuda="Conectados ao servidor" Icone={PlugZap} destaque />
-        <CartaoResumo rotulo="Carregando" valor={carregando} ajuda="Recargas em andamento" Icone={BatteryCharging} />
-        <CartaoResumo rotulo="Hoje" valor={formatarValor(faturamento)} ajuda={`${vendas} venda(s)`} Icone={Wallet} />
+        <CartaoResumo rotulo="Cadastrados" valor={cadastrados} ajuda={`${cadastrados - (resumo.online || 0)} offline`} Icone={PlugZap} />
+        <CartaoResumo rotulo="Online agora" valor={resumo.online || 0} ajuda="Conectados ao servidor" Icone={PlugZap} destaque />
+        <CartaoResumo rotulo="Carregando" valor={resumo.carregando || 0} ajuda="Recargas em andamento" Icone={BatteryCharging} />
+        <CartaoResumo rotulo="Hoje" valor={formatarValor(resumo.faturamento_hoje)} ajuda={`${resumo.vendas_hoje || 0} venda(s)`} Icone={Wallet} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -261,9 +290,9 @@ export default function Carregadores() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {CHIPS.filter((c) => c.chave === "todos" || contagem[c.chave]).map((c) => {
+        {CHIPS.filter((c) => c.chave === "todos" || contagem[c.chave] || chip === c.chave).map((c) => {
           const ativo = chip === c.chave;
-          const total = c.chave === "todos" ? doCliente.length : contagem[c.chave];
+          const total = contagem[c.chave] || 0;
           return (
             <button
               key={c.chave}
@@ -277,9 +306,9 @@ export default function Carregadores() {
             </button>
           );
         })}
-        {visiveis.length !== lista.length ? (
+        {dados.total !== cadastrados ? (
           <span className="text-xs text-[var(--color-text-soft)]">
-            {visiveis.length} de {lista.length}
+            {dados.total} de {cadastrados}
           </span>
         ) : null}
       </div>
@@ -376,7 +405,7 @@ export default function Carregadores() {
         </table>
         {visiveis.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-[var(--color-text-soft)]">
-            {lista.length ? "Nenhum carregador com esse filtro." : "Nenhum carregador cadastrado ainda."}
+            {cadastrados ? "Nenhum carregador com esse filtro." : "Nenhum carregador cadastrado ainda."}
           </div>
         ) : null}
       </div>
@@ -410,6 +439,8 @@ export default function Carregadores() {
           </button>
         ))}
       </div>
+
+      <Paginacao dados={dados} onPagina={setPagina} />
 
       <div className="flex flex-wrap gap-3 text-[11px] text-[var(--color-text-soft)]">
         {Object.entries(STATUS_CARREGADOR).map(([chave, s]) => (

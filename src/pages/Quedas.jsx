@@ -31,7 +31,7 @@ export default function Quedas() {
 
   useEffect(() => {
     api
-      .get("/admin/carregadores")
+      .get("/admin/carregadores/opcoes")
       .then(({ data }) => setCarregadores(data))
       .catch(() => {});
   }, []);

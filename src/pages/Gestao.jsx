@@ -189,7 +189,7 @@ export default function Gestao() {
   const [ordemRanking, setOrdemRanking] = useState("faturamento");
 
   useEffect(() => {
-    Promise.all([api.get("/admin/clientes"), api.get("/admin/carregadores")])
+    Promise.all([api.get("/admin/clientes/opcoes"), api.get("/admin/carregadores/opcoes")])
       .then(([c, g]) => {
         setClientes(c.data);
         setCarregadores(g.data);

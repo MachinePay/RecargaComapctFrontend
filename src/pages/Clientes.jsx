@@ -1,8 +1,11 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Check, CircleCheck, Pencil, Plus, TriangleAlert } from "lucide-react";
 
 import api from "../api/axios";
-import usePolling from "../hooks/usePolling";
+import useAtrasado from "../hooks/useAtrasado";
+import useListaPaginada from "../hooks/useListaPaginada";
+import CampoBusca from "../components/CampoBusca";
+import Paginacao from "../components/Paginacao";
 import Badge from "../components/Badge";
 import Button from "../components/Button";
 import Cabecalho from "../components/Cabecalho";
@@ -43,21 +46,11 @@ function Campo({ rotulo, dica, children }) {
 }
 
 export default function Clientes() {
-  const [lista, setLista] = useState([]);
+  const [busca, setBusca] = useState("");
+  const { dados, itens: lista, setPagina, recarregar: carregar } = useListaPaginada("/admin/clientes", { busca: useAtrasado(busca) });
   // null = fechado; sem id = novo; com id = editando.
   const [form, setForm] = useState(null);
   const [salvando, setSalvando] = useState(false);
-
-  const carregar = useCallback(async () => {
-    try {
-      const { data } = await api.get("/admin/clientes");
-      setLista(data);
-    } catch {
-      // Toast global
-    }
-  }, []);
-
-  usePolling(carregar, 15000, true, { imediato: true });
 
   const abrirEdicao = (cliente) =>
     setForm({
@@ -121,6 +114,10 @@ export default function Clientes() {
         }
       />
 
+      <div className="flex flex-wrap items-center gap-2">
+        <CampoBusca valor={busca} onMudar={setBusca} placeholder="Buscar por nome, e-mail, telefone, CPF/CNPJ..." />
+      </div>
+
       <div className="app-panel overflow-x-auto p-2">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="text-xs uppercase tracking-[0.14em] text-[var(--color-text-soft)]">
@@ -170,12 +167,13 @@ export default function Clientes() {
             {lista.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-[var(--color-text-soft)]">
-                  Nenhum cliente cadastrado. Cadastre o dono do carregador com as credenciais do banco dele.
+                  {busca ? "Nenhum cliente com essa busca." : "Nenhum cliente cadastrado. Cadastre o dono do carregador com as credenciais do banco dele."}
                 </td>
               </tr>
             ) : null}
           </tbody>
         </table>
+        <Paginacao dados={dados} onPagina={setPagina} />
       </div>
 
       <Modal open={Boolean(form)} onClose={() => setForm(null)}>

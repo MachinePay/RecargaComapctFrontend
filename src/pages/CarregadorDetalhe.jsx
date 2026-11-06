@@ -203,7 +203,7 @@ export default function CarregadorDetalhe() {
       mp_terminal_id: carregador.mp_terminal_id || "",
     });
     try {
-      setClientes((await api.get("/admin/clientes")).data);
+      setClientes((await api.get("/admin/clientes/opcoes")).data);
     } catch {
       // Toast global
     }
