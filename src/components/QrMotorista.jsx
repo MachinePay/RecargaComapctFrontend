@@ -48,26 +48,36 @@ function desenharCartaz(qr, nome, logo) {
   ctx.font = "600 34px 'Plus Jakarta Sans', sans-serif";
   ctx.fillText("Veja todos os carregadores no mapa do app", largura / 2, 1470);
 
-  // Rodape: faixa branca (a logo tem fundo branco) com simbolo + nome.
-  const faixa = { largura: 720, altura: 170, y: 1560 };
+  // Rodape: faixa branca (a logo tem fundo branco) com simbolo + nome. A
+  // largura sai do texto medido, para o nome nunca passar da borda.
+  const fonteNome = "800 62px 'Plus Jakarta Sans', sans-serif";
+  const fonteSub = "600 30px 'Plus Jakarta Sans', sans-serif";
+  ctx.font = fonteNome;
+  const larguraNome = ctx.measureText("CompactRecarga").width;
+  ctx.font = fonteSub;
+  const larguraTexto = Math.max(larguraNome, ctx.measureText("Recarga de carro eletrico").width);
+  const ladoLogo = 130;
+  const margemEsquerda = 36;
+  const espacoLogo = logo ? ladoLogo + 28 : 24;
+  const margemDireita = 80;
+  const faixa = { largura: margemEsquerda + espacoLogo + larguraTexto + margemDireita, altura: 170, y: 1560 };
   const faixaX = (largura - faixa.largura) / 2;
   ctx.fillStyle = "#ffffff";
   ctx.beginPath();
   ctx.roundRect(faixaX, faixa.y, faixa.largura, faixa.altura, 85);
   ctx.fill();
-  const ladoLogo = 130;
-  const logoX = faixaX + 40;
+  const logoX = faixaX + margemEsquerda;
   if (logo) {
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(logo, logoX, faixa.y + (faixa.altura - ladoLogo) / 2, ladoLogo, ladoLogo);
   }
   ctx.textAlign = "left";
-  const textoX = logo ? logoX + ladoLogo + 28 : faixaX + 60;
+  const textoX = logoX + espacoLogo;
   ctx.fillStyle = "#145233";
-  ctx.font = "800 62px 'Plus Jakarta Sans', sans-serif";
+  ctx.font = fonteNome;
   ctx.fillText("CompactRecarga", textoX, faixa.y + 92);
   ctx.fillStyle = "#1f7a4c";
-  ctx.font = "600 30px 'Plus Jakarta Sans', sans-serif";
+  ctx.font = fonteSub;
   ctx.fillText("Recarga de carro eletrico", textoX, faixa.y + 136);
   return canvas;
 }
