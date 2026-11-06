@@ -5,10 +5,13 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-const FUNDO = {
-  url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-  opcoes: { maxZoom: 19, subdomains: "abcd", attribution: "&copy; OpenStreetMap &copy; CARTO" },
-};
+// Fundo escuro da Esri (sem chave; o CARTO passou a exigir). A base vai ate o
+// zoom 16 e o Leaflet amplia dali; os nomes de ruas vem numa camada por cima.
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas";
+const CAMADAS = [
+  { url: `${ESRI}/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`, opcoes: { maxZoom: 19, maxNativeZoom: 16, attribution: "&copy; Esri" } },
+  { url: `${ESRI}/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}`, opcoes: { maxZoom: 19, maxNativeZoom: 16, pane: "shadowPane" } },
+];
 
 const RAIO = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.2c-.4.5 0 1.3.6 1.3H11l-1 7.5 8.5-11.2c.4-.5 0-1.3-.6-1.3H12l1-7.5Z"/></svg>`;
 
@@ -55,7 +58,7 @@ export default function MapaMotorista({ pontos, usuario, selecionado, onSelecion
   useEffect(() => {
     if (!divRef.current || mapaRef.current) return undefined;
     const mapa = L.map(divRef.current, { zoomControl: false, attributionControl: true }).setView([-15.78, -47.93], 4);
-    L.tileLayer(FUNDO.url, FUNDO.opcoes).addTo(mapa);
+    CAMADAS.forEach(({ url, opcoes }) => L.tileLayer(url, opcoes).addTo(mapa));
     camadaRef.current = L.layerGroup().addTo(mapa);
     mapa.on("click", () => selecionarRef.current?.(null));
     mapaRef.current = mapa;
