@@ -44,8 +44,40 @@ const COMANDOS_OCPP = {
   Reset: { type: "Soft" },
   // Parar carga que o carregador comecou sozinho (transactionId 0 = sem StartTransaction).
   RemoteStopTransaction: { transactionId: 0 },
+  // Limite de corrente que o carregador esta usando agora.
+  GetCompositeSchedule: { connectorId: 0, duration: 3600, chargingRateUnit: "A" },
   ChangeAvailability: { connectorId: 1, type: "Inoperative" },
 };
+
+// Ultima medicao que o carregador mandou (MeterValues). Recente = ate 2 min.
+function Medicao({ medicao }) {
+  if (!medicao?.em) return null;
+  const recente = medicao.segundos_atras != null && medicao.segundos_atras <= 120;
+  const quando =
+    medicao.segundos_atras == null
+      ? ""
+      : medicao.segundos_atras < 60
+        ? `ha ${medicao.segundos_atras} s`
+        : `ha ${Math.round(medicao.segundos_atras / 60)} min`;
+  const numero = (v, casas = 1) => (v == null ? "-" : Number(v).toLocaleString("pt-BR", { maximumFractionDigits: casas }));
+  return (
+    <div className={`mt-3 rounded-[18px] border border-[var(--color-border)] p-3 ${recente ? "bg-blue-50/60" : "bg-white opacity-70"}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm font-semibold text-[var(--color-text)]">{recente ? "Medicao ao vivo" : "Ultima medicao"}</div>
+        <div className="text-xs text-[var(--color-text-soft)]">{quando}</div>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+        <InfoPill rotulo="Carro puxando">{medicao.corrente_a != null ? `${numero(medicao.corrente_a)} A` : "-"}</InfoPill>
+        <InfoPill rotulo="Limite oferecido">{medicao.oferecida_a != null ? `${numero(medicao.oferecida_a)} A` : "-"}</InfoPill>
+        <InfoPill rotulo="Potencia">{medicao.potencia_w != null ? `${numero(medicao.potencia_w / 1000, 2)} kW` : "-"}</InfoPill>
+        <InfoPill rotulo="Tensao">{medicao.tensao_v != null ? `${numero(medicao.tensao_v, 0)} V` : "-"}</InfoPill>
+      </div>
+      {medicao.corrente_a == null && medicao.oferecida_a == null ? (
+        <div className="mt-1 text-xs text-[var(--color-text-soft)]">Este carregador nao manda a corrente nas medicoes.</div>
+      ) : null}
+    </div>
+  );
+}
 
 const CATEGORIAS = {
   PAGAMENTO: "ok",
@@ -104,6 +136,9 @@ export default function CarregadorDetalhe() {
   // Corrente maxima: null = mostra a salva no carregador.
   const [corrente, setCorrente] = useState(null);
   const [correnteMsg, setCorrenteMsg] = useState(null);
+  // Resposta do GetCompositeSchedule (o limite que o carregador diz usar).
+  const [leitura, setLeitura] = useState(null);
+  const [lendo, setLendo] = useState(false);
   const [aplicandoCorrente, setAplicandoCorrente] = useState(false);
 
   const carregar = useCallback(async () => {
@@ -206,6 +241,29 @@ export default function CarregadorDetalhe() {
       setClientes((await api.get("/admin/clientes/opcoes")).data);
     } catch {
       // Toast global
+    }
+  };
+
+  const lerCorrente = async () => {
+    setLendo(true);
+    setLeitura(null);
+    try {
+      const { data } = await api.post(`${base}/corrente/ler`, null, { silencioso: true });
+      if (data.limite_a != null) {
+        const bate = data.configurado_a == null || Number(data.configurado_a) === Number(data.limite_a);
+        setLeitura({
+          ok: bate,
+          texto: `O carregador diz: ${data.limite_a.toLocaleString("pt-BR")} A${data.conector ? ` (conector ${data.conector})` : ""}.${
+            bate ? "" : ` Diferente do configurado (${data.configurado_a} A): ele pode estar ignorando o limite.`
+          }`,
+        });
+      } else {
+        setLeitura({ ok: false, texto: `O carregador respondeu ${data.status || "sem status"} e nao informou o limite.` });
+      }
+    } catch (error) {
+      setLeitura({ ok: false, texto: error.compactpayMessage || "Nao foi possivel ler" });
+    } finally {
+      setLendo(false);
     }
   };
 
@@ -509,6 +567,7 @@ export default function CarregadorDetalhe() {
             <InfoPill rotulo="Modelo">{[carregador.vendor, carregador.modelo].filter(Boolean).join(" ") || "-"}</InfoPill>
             <InfoPill rotulo="Firmware">{carregador.firmware_version || "-"}</InfoPill>
           </div>
+          <Medicao medicao={carregador.medicao} />
           {isAdmin ? (
             <div className="mt-3 rounded-[18px] border border-[var(--color-border)] bg-white p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -543,6 +602,15 @@ export default function CarregadorDetalhe() {
                       <span className="text-sm font-semibold text-[var(--color-text-soft)]">A</span>
                       <button
                         type="button"
+                        onClick={lerCorrente}
+                        disabled={lendo || !carregador.online}
+                        className="pill-button px-3 py-1.5 text-sm font-semibold disabled:opacity-45"
+                        title="Pergunta ao carregador qual limite ele esta usando (GetCompositeSchedule)"
+                      >
+                        {lendo ? "Lendo..." : "Ler do carregador"}
+                      </button>
+                      <button
+                        type="button"
                         onClick={aplicarCorrente}
                         disabled={corrente === null || aplicandoCorrente || !carregador.online}
                         className="pill-button pill-button--primary px-4 py-1.5 text-sm font-semibold disabled:opacity-45"
@@ -559,6 +627,9 @@ export default function CarregadorDetalhe() {
                   </>
                 );
               })()}
+              {leitura ? (
+                <div className={`mt-2 text-xs font-semibold ${leitura.ok ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>{leitura.texto}</div>
+              ) : null}
               {correnteMsg ? (
                 <div className={`mt-2 text-xs font-semibold ${correnteMsg.ok ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>{correnteMsg.texto}</div>
               ) : null}
