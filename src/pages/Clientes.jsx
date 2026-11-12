@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Check, CircleCheck, Pencil, Plus, TriangleAlert } from "lucide-react";
+import { Check, CircleCheck, Copy, Pencil, Plus, TriangleAlert } from "lucide-react";
 
-import api from "../api/axios";
+import api, { API_BASE_URL } from "../api/axios";
 import useAtrasado from "../hooks/useAtrasado";
 import useListaPaginada from "../hooks/useListaPaginada";
 import CampoBusca from "../components/CampoBusca";
@@ -42,6 +42,41 @@ function Campo({ rotulo, dica, children }) {
       {children}
       {dica ? <span className="mt-1 block text-xs text-[var(--color-text-soft)]">{dica}</span> : null}
     </label>
+  );
+}
+
+// API_BASE_URL pode ser relativa (/api/v1): completa com a origem da pagina.
+const URL_WEBHOOK_MP = new URL(`${API_BASE_URL}/callback-mercado-pago`, window.location.origin).href;
+
+function LinkWebhookMp() {
+  const [copiado, setCopiado] = useState(false);
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(URL_WEBHOOK_MP);
+      setCopiado(true);
+      window.setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      window.prompt("Copie o link de notificacoes:", URL_WEBHOOK_MP);
+    }
+  };
+  return (
+    <div className="mb-4 border-b border-[var(--color-border)] pb-4">
+      <span className="mb-2 block text-sm font-semibold">Mercado Pago · URL de notificacoes (Webhooks)</span>
+      <div className="flex gap-2">
+        <input className={`${campoClasse} py-2 font-mono text-sm`} readOnly value={URL_WEBHOOK_MP} onFocus={(e) => e.target.select()} />
+        <button
+          type="button"
+          onClick={copiar}
+          className="flex shrink-0 items-center gap-1 rounded-[14px] border border-[var(--color-border)] bg-white px-3 text-sm font-semibold"
+        >
+          {copiado ? <Check size={16} /> : <Copy size={16} />}
+          {copiado ? "Copiado" : "Copiar"}
+        </button>
+      </div>
+      <span className="mt-1 block text-xs text-[var(--color-text-soft)]">
+        {"Sua aplicacao > Webhooks > Configurar notificacoes (modo producao): cole o link e marque os eventos Order e Pagamentos."}
+      </span>
+    </div>
   );
 }
 
@@ -260,6 +295,7 @@ export default function Clientes() {
 
             {form.cliente_mercado_pago ? (
               <div className="rounded-[22px] bg-[var(--color-bg-muted)] p-4">
+                <LinkWebhookMp />
                 <Campo
                   rotulo="Mercado Pago · Access Token de producao"
                   dica={
