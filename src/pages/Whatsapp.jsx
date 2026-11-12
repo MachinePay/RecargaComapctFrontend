@@ -3,7 +3,11 @@ import { Link } from "react-router-dom";
 import { CircleCheck, CircleX, LoaderCircle, MessageCircle, QrCode, RotateCcw, Send, TriangleAlert } from "lucide-react";
 
 import api from "../api/axios";
+import useAtrasado from "../hooks/useAtrasado";
+import useListaPaginada from "../hooks/useListaPaginada";
 import usePolling from "../hooks/usePolling";
+import CampoBusca from "../components/CampoBusca";
+import Paginacao from "../components/Paginacao";
 import Badge from "../components/Badge";
 import Button from "../components/Button";
 import Cabecalho from "../components/Cabecalho";
@@ -65,6 +69,11 @@ export default function Whatsapp() {
   const [qr, setQr] = useState(null);
   const [ocupado, setOcupado] = useState("");
   const [aviso, setAviso] = useState("");
+  const [telefoneTeste, setTelefoneTeste] = useState("");
+  const [busca, setBusca] = useState("");
+  // Quem recebe: paginado no servidor.
+  const lista = useListaPaginada("/admin/whatsapp/clientes", { busca: useAtrasado(busca) });
+  const clientes = lista.itens;
 
   const carregar = useCallback(async () => {
     try {
@@ -79,7 +88,7 @@ export default function Whatsapp() {
 
   if (!dados) return <LoadingSpinner className="min-h-[60vh]" />;
 
-  const { config, conexao, clientes, envios } = dados;
+  const { config, conexao, envios, contadores } = dados;
   const estado = ESTADOS[conexao.estado] || (conexao.configurado ? { texto: conexao.estado || "?", tom: "neutro", Icone: TriangleAlert } : null);
   const conexaoAtual = conexaoForm ?? { evolution_url: config.evolution_url || "", api_key: "", instancia: config.instancia || "" };
   const envioAtual = envioForm ?? {
@@ -136,8 +145,8 @@ export default function Whatsapp() {
 
   const ligarEnvio = () => executar("ativo", () => api.put("/admin/whatsapp/config", { ativo: !config.ativo }));
 
-  const salvarCliente = (cliente, mudanca) =>
-    executar(`cliente-${cliente.id}`, () =>
+  const salvarCliente = async (cliente, mudanca) => {
+    await executar(`cliente-${cliente.id}`, () =>
       api.put(`/admin/whatsapp/clientes/${cliente.id}`, {
         ativo: cliente.ativo,
         recebe_lembrete: cliente.recebe_lembrete,
@@ -147,6 +156,17 @@ export default function Whatsapp() {
         ...mudanca,
       }),
     );
+    lista.recarregar();
+  };
+
+  const testarNumero = async (event) => {
+    event.preventDefault();
+    const r = await executar("teste-numero", () => api.post("/admin/whatsapp/teste", { telefone: telefoneTeste }));
+    if (r) {
+      setAviso(`Teste enviado para +${r.data.telefone}. Confira no celular.`);
+      carregar();
+    }
+  };
 
   const salvarMensagens = async () => {
     const corpo = Object.fromEntries(TIPOS.map(([tipo]) => [`mensagem_${tipo}`, mensagensAtuais[tipo]]));
@@ -165,6 +185,19 @@ export default function Whatsapp() {
       />
 
       {aviso ? <div className="rounded-[18px] bg-[var(--color-primary-soft)] px-4 py-2 text-sm font-semibold text-[var(--color-primary-strong)]">{aviso}</div> : null}
+
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          ["Enviadas (24h)", contadores?.enviados_24h ?? 0, "text-[var(--color-success)]"],
+          ["Erros (24h)", contadores?.erros_24h ?? 0, contadores?.erros_24h ? "text-[var(--color-error)]" : "text-[var(--color-text)]"],
+          ["Clientes com aviso", contadores?.clientes_avisados ?? 0, "text-[var(--color-text)]"],
+        ].map(([rotulo, valor, cor]) => (
+          <div key={rotulo} className="app-panel px-4 py-3">
+            <div className={`text-2xl font-extrabold tabular-nums ${cor}`}>{valor}</div>
+            <div className="text-xs text-[var(--color-text-soft)]">{rotulo}</div>
+          </div>
+        ))}
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Painel
@@ -220,6 +253,21 @@ export default function Whatsapp() {
               </div>
             </div>
           ) : null}
+          <form onSubmit={testarNumero} className="mt-4 border-t border-[var(--color-border)] pt-3">
+            <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Enviar teste para um numero</span>
+            <div className="flex gap-2">
+              <input
+                className={`${campoClasse} py-2`}
+                placeholder="(11) 98765-4321"
+                value={telefoneTeste}
+                onChange={(e) => setTelefoneTeste(e.target.value)}
+              />
+              <Button type="submit" className="shrink-0 px-4 py-2 text-sm" disabled={conexao.estado !== "open" || !telefoneTeste.trim() || ocupado === "teste-numero"}>
+                <Send size={14} /> Enviar
+              </Button>
+            </div>
+            {conexao.estado !== "open" ? <p className="mt-1 text-xs text-[var(--color-text-soft)]">Conecte o numero para enviar o teste.</p> : null}
+          </form>
         </Painel>
 
         <Painel
@@ -258,6 +306,9 @@ export default function Whatsapp() {
       </div>
 
       <Painel titulo="Quem recebe" subtitulo="O numero e' o telefone do cadastro do cliente (pode ter mais de um, separados por virgula).">
+        <div className="mb-3 flex">
+          <CampoBusca valor={busca} onMudar={setBusca} placeholder="Buscar cliente ou telefone..." />
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="text-[11px] uppercase tracking-[0.14em] text-[var(--color-text-soft)]">
@@ -343,13 +394,14 @@ export default function Whatsapp() {
               {clientes.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-2 py-8 text-center text-[var(--color-text-soft)]">
-                    Nenhum cliente cadastrado.
+                    {busca ? "Nenhum cliente com essa busca." : "Nenhum cliente cadastrado."}
                   </td>
                 </tr>
               ) : null}
             </tbody>
           </table>
         </div>
+        <Paginacao dados={lista.dados} onPagina={lista.setPagina} />
       </Painel>
 
       <Painel
