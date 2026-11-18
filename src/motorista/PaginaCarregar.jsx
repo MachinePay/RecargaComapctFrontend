@@ -1,4 +1,5 @@
-// Entrada pelo QR code do carregador: escolher o tempo e gerar o Pix.
+// Entrada pelo QR code do carregador: escolher o tempo (ou a energia, no
+// carregador que cobra por kWh) e gerar o Pix.
 // O link do QR (/c/:id) so guarda o carregador em memoria e troca o endereco;
 // atualizar esta tela leva para o mapa.
 import { useCallback, useRef, useState } from "react";
@@ -7,7 +8,7 @@ import { ArrowLeft, BatteryCharging, CircleUserRound, Clock, History, LoaderCirc
 import usePolling from "../hooks/usePolling";
 import { formatarValor } from "../utils/formatos";
 import { apiPublica, carregadorLido, dispositivo, guardarCarregadorDoQr, lembrarRecarga, mensagemErro } from "./servicos";
-import { SITUACOES, duracao, horaDaqui, restante, textoSituacao, useAgora } from "./regras";
+import { SITUACOES, duracao, formatarKwhCurto, horaDaqui, restante, textoSituacao, useAgora } from "./regras";
 import { useConta } from "./conta";
 import FormConta from "./FormConta";
 import { Esqueleto, Logo, SeloSituacao } from "./ui";
@@ -26,6 +27,7 @@ const PASSOS = [
 
 // Valor em reais pela regra do carregador (o servidor recalcula igual).
 const valorDe = (c, minutos) => (c?.preco_valor && c?.preco_minutos ? Math.round(((minutos * c.preco_valor) / c.preco_minutos) * 100) / 100 : 0);
+const valorKwh = (c, kwh) => (c?.preco_kwh ? Math.round(kwh * c.preco_kwh * 100) / 100 : 0);
 
 export default function PaginaCarregar() {
   const id = carregadorLido();
@@ -35,6 +37,7 @@ export default function PaginaCarregar() {
   const [recebidoEm, setRecebidoEm] = useState(0);
   const [erro, setErro] = useState("");
   const [minutos, setMinutos] = useState(60);
+  const [kwh, setKwh] = useState(20);
   const [gerando, setGerando] = useState(false);
   const [erroPix, setErroPix] = useState("");
   const iniciouRef = useRef(false);
@@ -49,7 +52,8 @@ export default function PaginaCarregar() {
       if (!iniciouRef.current) {
         // Primeira carga: comeca em 1 h (dentro da faixa permitida).
         iniciouRef.current = true;
-        setMinutos(Math.min(Math.max(60, data.minutos_min), data.minutos_max));
+        if (data.modo_cobranca === "kwh") setKwh(Math.min(Math.max(20, data.kwh_min), data.kwh_max));
+        else setMinutos(Math.min(Math.max(60, data.minutos_min), data.minutos_max));
       }
       setC(data);
       setRecebidoEm(Date.now());
@@ -67,7 +71,8 @@ export default function PaginaCarregar() {
     setGerando(true);
     setErroPix("");
     try {
-      const { data } = await apiPublica.post("/pix", { carregador_id: id, minutos, dispositivo: dispositivo() });
+      const compra = c?.modo_cobranca === "kwh" ? { kwh } : { minutos };
+      const { data } = await apiPublica.post("/pix", { carregador_id: id, ...compra, dispositivo: dispositivo() });
       lembrarRecarga(data.id);
       navigate(`/app/recarga/${data.id}`, { replace: true });
     } catch (e) {
@@ -83,9 +88,14 @@ export default function PaginaCarregar() {
     else setPerguntarConta(true);
   };
 
-  const valor = valorDe(c, minutos);
+  const porKwh = c?.modo_cobranca === "kwh";
+  const valor = porKwh ? valorKwh(c, kwh) : valorDe(c, minutos);
   const livre = c?.situacao === "livre";
-  const porcentagem = c ? ((minutos - c.minutos_min) / Math.max(1, c.minutos_max - c.minutos_min)) * 100 : 0;
+  const porcentagem = !c
+    ? 0
+    : porKwh
+      ? ((kwh - c.kwh_min) / Math.max(1, c.kwh_max - c.kwh_min)) * 100
+      : ((minutos - c.minutos_min) / Math.max(1, c.minutos_max - c.minutos_min)) * 100;
   // Estimativa de energia so com a corrente configurada (220 V, monofasico).
   const kwhEstimado = c?.corrente_maxima_a ? (220 * c.corrente_maxima_a * minutos) / 60 / 1000 : null;
 
@@ -124,9 +134,12 @@ export default function PaginaCarregar() {
               {c.endereco && <p className="mt-1.5 text-[13px] font-semibold text-[var(--mt-text-soft)]">{c.endereco}</p>}
             </section>
 
+            {livre && c.aceita_pix && porKwh ? (
+              <EscolherKwh c={c} kwh={kwh} setKwh={setKwh} valor={valor} porcentagem={porcentagem} />
+            ) : null}
             {livre && c.aceita_pix ? (
               <>
-                <section className="mt-entrar mt-6 rounded-[28px] border border-[var(--mt-border)] bg-[linear-gradient(160deg,#14241d,#0c1512)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+                {!porKwh && <section className="mt-entrar mt-6 rounded-[28px] border border-[var(--mt-border)] bg-[linear-gradient(160deg,#14241d,#0c1512)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
                   <p className="text-center text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--mt-text-soft)]">Quanto tempo de recarga?</p>
                   <div className="mt-3 text-center">
                     <p className="mt-num mt-brilho text-[64px] font-bold leading-none text-[var(--mt-accent)]">{duracao(minutos * 60)}</p>
@@ -170,7 +183,7 @@ export default function PaginaCarregar() {
                       </button>
                     ))}
                   </div>
-                </section>
+                </section>}
 
                 <ol className="mt-entrar mt-5 grid grid-cols-3 gap-2">
                   {PASSOS.map((passo, i) => (
@@ -186,7 +199,10 @@ export default function PaginaCarregar() {
                   ))}
                 </ol>
                 <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[12px] font-semibold text-[var(--mt-text-faint)]">
-                  <Clock size={13} /> O tempo so comeca a contar quando o carro comeca a carregar.
+                  <Clock size={13} />
+                  {porKwh
+                    ? "Se o carro encher antes, devolvemos o que sobrar no seu Pix."
+                    : "O tempo so comeca a contar quando o carro comeca a carregar."}
                 </p>
 
                 {erroPix && (
@@ -225,6 +241,56 @@ export default function PaginaCarregar() {
         />
       )}
     </div>
+  );
+}
+
+function EscolherKwh({ c, kwh, setKwh, valor, porcentagem }) {
+  // Estimativa de tempo pela corrente configurada (220 V, monofasico).
+  const potenciaKw = c.corrente_maxima_a ? (220 * c.corrente_maxima_a) / 1000 : null;
+  return (
+    <section className="mt-entrar mt-6 rounded-[28px] border border-[var(--mt-border)] bg-[linear-gradient(160deg,#14241d,#0c1512)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+      <p className="text-center text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--mt-text-soft)]">Quanta energia?</p>
+      <div className="mt-3 text-center">
+        <p className="mt-num mt-brilho text-[64px] font-bold leading-none text-[var(--mt-accent)]">{formatarKwhCurto(kwh)}</p>
+        <p className="mt-num mt-2 text-[28px] font-bold">{formatarValor(valor)}</p>
+        <p className="mt-1 text-[12.5px] font-semibold text-[var(--mt-text-soft)]">
+          {formatarValor(c.preco_kwh)} por kWh
+          {potenciaKw ? ` · cerca de ${duracao((kwh / potenciaKw) * 3600)} carregando` : ""}
+        </p>
+      </div>
+
+      <input
+        type="range"
+        min={c.kwh_min}
+        max={c.kwh_max}
+        step={1}
+        value={kwh}
+        onChange={(e) => setKwh(Number(e.target.value))}
+        className="mt-faixa mt-6"
+        style={{ "--p": `${porcentagem}%` }}
+        aria-label="Energia da recarga"
+      />
+      <div className="mt-1.5 flex justify-between text-[11px] font-bold text-[var(--mt-text-faint)]">
+        <span>{formatarKwhCurto(c.kwh_min)}</span>
+        <span>{formatarKwhCurto(c.kwh_max)}</span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        {c.opcoes.map((o) => (
+          <button
+            key={o.kwh}
+            type="button"
+            onClick={() => setKwh(o.kwh)}
+            className={`rounded-2xl border px-2 py-2.5 text-center transition active:scale-95 ${
+              kwh === o.kwh ? "border-[var(--mt-accent)] bg-[var(--mt-accent)]/15" : "border-[var(--mt-border)] bg-[var(--mt-surface-soft)]"
+            }`}
+          >
+            <span className="mt-num block text-[16px] font-bold">{formatarKwhCurto(o.kwh)}</span>
+            <span className="block text-[12px] font-semibold text-[var(--mt-text-soft)]">{formatarValor(o.valor)}</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 

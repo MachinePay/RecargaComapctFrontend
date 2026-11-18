@@ -5,7 +5,7 @@ import { MOTIVOS_FIM, STATUS_SESSAO, formatarDataHora, formatarKwh, formatarValo
 
 const ATIVAS = ["aguardando_inicio", "aguardando_carro", "carregando", "encerrando"];
 
-export default function TabelaSessoes({ sessoes, mostrarCarregador = true, onEncerrar, onEstornar }) {
+export default function TabelaSessoes({ sessoes, mostrarCarregador = true, onEncerrar, onEstornar, onDevolverSobra }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[820px] text-left text-sm">
@@ -14,7 +14,7 @@ export default function TabelaSessoes({ sessoes, mostrarCarregador = true, onEnc
             <th className="px-4 py-3">#</th>
             {mostrarCarregador ? <th className="px-4 py-3">Carregador</th> : null}
             <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3">Tempo pago</th>
+            <th className="px-4 py-3">Pago</th>
             <th className="px-4 py-3">Valor</th>
             <th className="px-4 py-3">Inicio</th>
             <th className="px-4 py-3">Fim</th>
@@ -41,10 +41,19 @@ export default function TabelaSessoes({ sessoes, mostrarCarregador = true, onEnc
                     <div className="mt-1 text-xs text-[var(--color-text-soft)]">{MOTIVOS_FIM[s.motivo_fim] || s.motivo_fim}</div>
                   ) : null}
                 </td>
-                <td className="px-4 py-3">{s.minutos_pagos ? `${s.minutos_pagos} min` : "Livre (RFID)"}</td>
                 <td className="px-4 py-3">
-                  {s.valor != null ? formatarValor(s.valor) : "-"}
+                  {s.kwh_pagos != null ? formatarKwh(s.kwh_pagos) : s.minutos_pagos ? `${s.minutos_pagos} min` : "Livre (RFID)"}
+                </td>
+                <td className="px-4 py-3">
+                  {s.valor_pago != null ? formatarValor(s.valor_pago) : s.valor != null ? formatarValor(s.valor) : "-"}
                   <div className="text-xs text-[var(--color-text-soft)]">{s.metodo || s.origem || ""}</div>
+                  {s.valor_consumido != null ? (
+                    <div className="text-xs text-[var(--color-text-soft)]">Usou {formatarValor(s.valor_consumido)}</div>
+                  ) : null}
+                  {s.valor_devolvido > 0 && !s.estornada ? <Badge tom="ok">Devolveu {formatarValor(s.valor_devolvido)}</Badge> : null}
+                  {s.acerto_erro ? (
+                    <div className="mt-1 max-w-[220px] text-xs font-semibold text-[var(--color-warning)]">{s.acerto_erro}</div>
+                  ) : null}
                   {s.estornada ? <Badge tom="aviso">Estornado</Badge> : null}
                   {s.estorno_erro ? <Badge tom="erro">Estorno falhou</Badge> : null}
                 </td>
@@ -61,7 +70,16 @@ export default function TabelaSessoes({ sessoes, mostrarCarregador = true, onEnc
                       Encerrar
                     </button>
                   ) : null}
-                  {onEstornar && !ATIVAS.includes(s.status) && s.valor > 0 && !s.estornada ? (
+                  {onDevolverSobra && s.acerto_erro && s.valor_consumido != null ? (
+                    <button
+                      type="button"
+                      onClick={() => onDevolverSobra(s)}
+                      className="mb-1 rounded-full border border-[var(--color-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--color-text)] hover:border-amber-300 hover:bg-amber-50"
+                    >
+                      Devolver sobra
+                    </button>
+                  ) : null}
+                  {onEstornar && !ATIVAS.includes(s.status) && s.valor > 0 && !s.estornada && (s.valor_devolvido || 0) < s.valor ? (
                     <button
                       type="button"
                       onClick={() => onEstornar(s)}

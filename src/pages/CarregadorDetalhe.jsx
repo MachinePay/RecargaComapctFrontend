@@ -342,14 +342,33 @@ export default function CarregadorDetalhe() {
   };
 
   // ---- Venda na maquininha ----------------------------------------------
-  const precoForm = preco ?? { valor: carregador.preco_valor ?? "", minutos: carregador.preco_minutos ?? "" };
+  const precoForm = preco ?? {
+    modo: carregador.modo_cobranca || "tempo",
+    valor: carregador.preco_valor ?? "",
+    minutos: carregador.preco_minutos ?? "",
+    precoKwh: carregador.preco_kwh ?? "",
+    teto: carregador.kwh_tempo_maximo_min ?? "",
+    devolver: carregador.devolver_sobra !== false,
+  };
+  const porKwh = precoForm.modo === "kwh";
   const precoValorNum = Number(String(precoForm.valor).replace(",", "."));
   const precoMinutosNum = Number(precoForm.minutos);
+  const precoKwhNum = Number(String(precoForm.precoKwh).replace(",", "."));
+  const carregadorPorKwh = carregador.modo_cobranca === "kwh";
+  const temPreco = carregadorPorKwh ? Boolean(carregador.preco_kwh) : Boolean(carregador.preco_valor);
 
   const salvarPreco = async (event) => {
     event.preventDefault();
+    const dados = porKwh
+      ? {
+          modo_cobranca: "kwh",
+          preco_kwh: precoKwhNum,
+          kwh_tempo_maximo_min: precoForm.teto === "" ? null : Number(precoForm.teto),
+          devolver_sobra: precoForm.devolver,
+        }
+      : { modo_cobranca: "tempo", preco_valor: precoValorNum, preco_minutos: precoMinutosNum };
     try {
-      await api.patch(base, { preco_valor: precoValorNum, preco_minutos: precoMinutosNum });
+      await api.patch(base, dados);
       setPreco(null);
       carregar();
     } catch {
@@ -524,16 +543,29 @@ export default function CarregadorDetalhe() {
               <div>
                 <Badge tom={statusSessao?.tom}>{statusSessao?.texto || sessao.status}</Badge>
                 <div className="mt-2 text-sm text-[var(--color-text-soft)]">
-                  Recarga #{sessao.id} · {sessao.minutos_pagos ? `${formatarMinutos(sessao.minutos_pagos)} pagos` : "livre (RFID)"} · {formatarKwh(sessao.energia_kwh)}
+                  Recarga #{sessao.id} ·{" "}
+                  {sessao.kwh_pagos != null
+                    ? `${formatarKwh(sessao.kwh_pagos)} pagos`
+                    : sessao.minutos_pagos
+                      ? `${formatarMinutos(sessao.minutos_pagos)} pagos`
+                      : "livre (RFID)"}{" "}
+                  · {formatarKwh(sessao.energia_kwh)}
                 </div>
-                {sessao.status === "carregando" && sessao.segundos_restantes == null && sessao.minutos_pagos ? (
+                {sessao.status === "carregando" && sessao.segundos_restantes == null && sessao.minutos_pagos && sessao.kwh_pagos == null ? (
                   <div className="mt-1 text-sm font-semibold text-blue-800">
                     Aguardando o carro puxar energia: o tempo pago ainda nao comecou. Se nao puxar em 5 min, estorna sozinho.
                   </div>
                 ) : null}
+                {sessao.kwh_pagos != null ? (
+                  <div className="mt-1 text-sm font-semibold text-blue-800">
+                    Para sozinho ao entregar os kWh pagos (ou no tempo maximo).
+                  </div>
+                ) : null}
               </div>
               <div className="flex items-center gap-3">
-                {sessao.segundos_restantes != null ? (
+                {sessao.kwh_pagos != null ? (
+                  <span className="text-4xl font-extrabold tabular-nums text-blue-700">{formatarKwh(sessao.kwh_restantes)}</span>
+                ) : sessao.segundos_restantes != null ? (
                   <span className="text-4xl font-extrabold tabular-nums text-blue-700">{formatarRelogio(sessao.segundos_restantes)}</span>
                 ) : null}
                 {isAdmin ? <button
@@ -651,7 +683,12 @@ export default function CarregadorDetalhe() {
         >
           {!isAdmin ? (
             <div className="text-sm text-[var(--color-text)]">
-              {carregador.preco_valor ? (
+              {carregadorPorKwh && carregador.preco_kwh ? (
+                <>
+                  Cobra por energia: <b>{formatarValor(carregador.preco_kwh)}</b> por kWh
+                  {carregador.devolver_sobra ? " · devolve o que sobrar" : ""}
+                </>
+              ) : carregador.preco_valor ? (
                 <>
                   Preco: <b>{formatarValor(carregador.preco_valor)}</b> = <b>{formatarMinutos(carregador.preco_minutos)}</b>
                 </>
@@ -661,7 +698,58 @@ export default function CarregadorDetalhe() {
             </div>
           ) : null}
           {isAdmin ? (
-          <form onSubmit={salvarPreco} className="flex flex-wrap items-end gap-2">
+          <form onSubmit={salvarPreco} className="space-y-3">
+            <div>
+              <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Cobrar por</span>
+              <div className="inline-flex rounded-full bg-[var(--color-bg-muted)] p-1">
+                {[
+                  ["tempo", "Tempo"],
+                  ["kwh", "Energia (kWh)"],
+                ].map(([valor, texto]) => (
+                  <button
+                    key={valor}
+                    type="button"
+                    onClick={() => setPreco({ ...precoForm, modo: valor })}
+                    className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
+                      precoForm.modo === valor ? "bg-[var(--color-surface)] text-[var(--color-text)] shadow-sm" : "text-[var(--color-text-soft)]"
+                    }`}
+                  >
+                    {texto}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {porKwh ? (
+              <>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="w-[130px]">
+                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Preco do kWh (R$)</span>
+                    <input className={`${campoClasse} py-2`} inputMode="decimal" placeholder="2,00" value={precoForm.precoKwh} onChange={(e) => setPreco({ ...precoForm, precoKwh: e.target.value })} required />
+                  </label>
+                  <label className="w-[150px]">
+                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Tempo maximo (min)</span>
+                    <input
+                      className={`${campoClasse} py-2`}
+                      type="number"
+                      min={10}
+                      max={1440}
+                      placeholder={String(carregador.kwh_tempo_maximo_padrao ?? 480)}
+                      value={precoForm.teto}
+                      onChange={(e) => setPreco({ ...precoForm, teto: e.target.value })}
+                    />
+                  </label>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-[var(--color-text)]">
+                  <input type="checkbox" checked={precoForm.devolver} onChange={(e) => setPreco({ ...precoForm, devolver: e.target.checked })} />
+                  Devolver sozinho o que o motorista pagou e nao usou (estorno parcial)
+                </label>
+                <p className="text-xs text-[var(--color-text-soft)]">
+                  O motorista paga um valor, que vira energia. O carregador para quando entrega os kWh pagos, quando o carro enche ou quando passa o tempo maximo.
+                  O carregador precisa mandar a leitura do medidor (veja em Diagnostico se chega Energy.Active.Import.Register).
+                </p>
+              </>
+            ) : (
+            <div className="flex flex-wrap items-end gap-2">
             <label className="w-[110px]">
               <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Valor (R$)</span>
               <input className={`${campoClasse} py-2`} inputMode="decimal" placeholder="10" value={precoForm.valor} onChange={(e) => setPreco({ ...precoForm, valor: e.target.value })} required />
@@ -671,12 +759,23 @@ export default function CarregadorDetalhe() {
               <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Minutos</span>
               <input className={`${campoClasse} py-2`} type="number" min={1} max={1440} placeholder="20" value={precoForm.minutos} onChange={(e) => setPreco({ ...precoForm, minutos: e.target.value })} required />
             </label>
+            </div>
+            )}
             <Button type="submit" className="px-4 py-2 text-sm" disabled={preco === null}>
               Salvar preco
             </Button>
           </form>
           ) : null}
-          {precoValorNum > 0 && precoMinutosNum > 0 ? (
+          {porKwh && precoKwhNum > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {[10, 20, 50, 100].map((v) => (
+                <span key={v} className="rounded-full bg-[var(--color-bg-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text)]">
+                  {formatarValor(v)} → {formatarKwh(Math.floor((v / precoKwhNum) * 100) / 100)}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {!porKwh && precoValorNum > 0 && precoMinutosNum > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {[5, 10, 20, 50].map((v) => (
                 <span key={v} className="rounded-full bg-[var(--color-bg-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text)]">
@@ -745,14 +844,16 @@ export default function CarregadorDetalhe() {
             <button
               type="submit"
               className="pill-button px-4 py-2 text-sm font-semibold disabled:opacity-45"
-              disabled={!carregador.preco_valor || !carregador.online}
-              title={!carregador.preco_valor ? "Salve o preco primeiro" : !carregador.online ? "Carregador offline" : ""}
+              disabled={!temPreco || !carregador.online}
+              title={!temPreco ? "Salve o preco primeiro" : !carregador.online ? "Carregador offline" : ""}
             >
               Testar sem pagar
             </button>
             {simulacao ? (
               <span className={`text-sm font-semibold ${simulacao.estornada ? "text-[var(--color-warning)]" : "text-[var(--color-success)]"}`}>
-                {simulacao.estornada ? "Nao liberou (carregador ocupado)" : `${formatarValor(simulacao.valor)} liberou ${formatarMinutos(simulacao.minutos)}`}
+                {simulacao.estornada
+                  ? "Nao liberou (carregador ocupado)"
+                  : `${formatarValor(simulacao.valor)} liberou ${simulacao.kwh != null ? formatarKwh(simulacao.kwh) : formatarMinutos(simulacao.minutos)}`}
               </span>
             ) : null}
           </form>

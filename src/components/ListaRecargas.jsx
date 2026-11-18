@@ -11,7 +11,7 @@ import usePolling from "../hooks/usePolling";
 import Paginacao from "./Paginacao";
 import TabelaSessoes from "./TabelaSessoes";
 import { confirmar } from "../utils/confirmar";
-import { estornarRecarga } from "../utils/estornar";
+import { devolverSobra, estornarRecarga } from "../utils/estornar";
 
 const PERIODOS = [
   ["hoje", "Hoje"],
@@ -191,6 +191,7 @@ export default function ListaRecargas({ carregadorId, porPagina = 25, onTotal })
             mostrarCarregador={!carregadorId}
             onEncerrar={isAdmin ? encerrar : undefined}
             onEstornar={isAdmin ? async (s) => (await estornarRecarga(s)) && carregar() : undefined}
+            onDevolverSobra={isAdmin ? async (s) => (await devolverSobra(s)) && carregar() : undefined}
           />
           <Paginacao dados={dados} onPagina={setPagina} />
         </>

@@ -60,4 +60,5 @@ export const MOTIVOS_FIM = {
   stop_recusado_verificar: "Verificar: stop recusado",
   stop_sem_confirmacao: "Parou (sem confirmacao do carregador)",
   carro_nao_puxou_energia: "Carro nao puxou energia (estornado)",
+  energia_atingida: "Entregou os kWh pagos",
 };

@@ -368,7 +368,13 @@ export default function Carregadores() {
                     {NOME_BANCO[c.banco_pagamento] || "Mercado Pago"}
                     {c.banco_pagamento === "sumup" ? (c.sumup_reader_id || c.sumup_device_code ? " · maquininha ok" : "") : c.mp_pos_id ? " · caixa ok" : " · sem caixa"}
                     {" · "}
-                    {c.preco_valor ? `${formatarValor(c.preco_valor)} = ${c.preco_minutos} min` : "sem preco"}
+                    {c.modo_cobranca === "kwh"
+                      ? c.preco_kwh
+                        ? `${formatarValor(c.preco_kwh)}/kWh`
+                        : "sem preco"
+                      : c.preco_valor
+                        ? `${formatarValor(c.preco_valor)} = ${c.preco_minutos} min`
+                        : "sem preco"}
                   </div>
                 </td>
                 <td className="px-3 py-3">

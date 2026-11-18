@@ -104,7 +104,8 @@ export default function QrMotorista({ carregador }) {
   };
 
   const avisos = [];
-  if (!carregador.preco_valor || !carregador.preco_minutos) avisos.push("Sem regra de preco: o motorista nao consegue pagar.");
+  const semPreco = carregador.modo_cobranca === "kwh" ? !carregador.preco_kwh : !carregador.preco_valor || !carregador.preco_minutos;
+  if (semPreco) avisos.push("Sem regra de preco: o motorista nao consegue pagar.");
   if ((carregador.banco_pagamento || "mercado_pago") === "mercado_pago" && !carregador.tem_token_mp) avisos.push("Sem token do Mercado Pago: o Pix nao e' gerado.");
   if (carregador.latitude == null) avisos.push("Sem localizacao: nao aparece no mapa do motorista.");
 

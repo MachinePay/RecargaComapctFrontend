@@ -43,7 +43,16 @@ export function horaDaqui(segundos, agora) {
 export const formatarKm = (km) =>
   km < 1 ? `${Math.round(km * 1000)} m` : `${km.toLocaleString("pt-BR", { maximumFractionDigits: km < 10 ? 1 : 0 })} km`;
 
-export const precoHora = (c) => (c.preco_hora ? `${formatarValor(c.preco_hora)}/h` : "Sem preco");
+export const precoHora = (c) =>
+  c.modo_cobranca === "kwh"
+    ? c.preco_kwh
+      ? `${formatarValor(c.preco_kwh)}/kWh`
+      : "Sem preco"
+    : c.preco_hora
+      ? `${formatarValor(c.preco_hora)}/h`
+      : "Sem preco";
+
+export const formatarKwhCurto = (kwh) => `${Number(kwh || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kWh`;
 
 // Texto do status com a previsao de liberar ("Em uso · libera em 23 min").
 export function textoSituacao(c, segundos) {

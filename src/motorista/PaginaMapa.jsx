@@ -427,7 +427,11 @@ function DetalheCarregador({ c, agora, maisPerto, onFechar }) {
 
       <div className="mt-4 grid grid-cols-3 gap-2">
         <Indicador titulo="De carro" valor={c.rota ? `${c.rota.minutos} min` : "--"} detalhe={c.rota ? formatarKm(c.rota.km) : "ative a localizacao"} />
-        <Indicador titulo="Preco" valor={c.preco_hora ? c.preco_hora.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "--"} detalhe="por hora" />
+        {c.modo_cobranca === "kwh" ? (
+          <Indicador titulo="Preco" valor={c.preco_kwh ? c.preco_kwh.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "--"} detalhe="por kWh" />
+        ) : (
+          <Indicador titulo="Preco" valor={c.preco_hora ? c.preco_hora.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "--"} detalhe="por hora" />
+        )}
         <Indicador
           titulo={c.situacao === "ocupado" ? "Libera em" : "Status"}
           valor={c.situacao === "ocupado" ? (c.segundos != null ? duracao(c.segundos) : "--") : SITUACOES[c.situacao]?.curto}

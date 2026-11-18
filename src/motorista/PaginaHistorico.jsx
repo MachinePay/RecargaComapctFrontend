@@ -57,7 +57,7 @@ export default function PaginaHistorico() {
         grupos.push(grupo);
       }
       grupo.itens.push({ ...r, quando });
-      if (!r.estornada) grupo.valor += r.valor;
+      if (!r.estornada) grupo.valor += r.valor - (r.valor_devolvido || 0);
     }
     return grupos;
   }, [dados]);
@@ -191,7 +191,7 @@ function ItemRecarga({ r }) {
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-extrabold">{r.carregador_nome}</span>
         <span className="mt-0.5 block text-[12.5px] font-semibold text-[var(--mt-text-soft)]">
-          {r.quando.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {duracao(r.minutos * 60)} ·{" "}
+          {r.quando.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · {r.kwh != null ? `${numero(r.kwh, 2)} kWh pagos` : duracao(r.minutos * 60)} ·{" "}
           {numero(r.sessao?.energia_kwh, 2)} kWh
         </span>
         <span className="mt-1 inline-flex items-center gap-1.5 text-[11.5px] font-extrabold" style={{ color: s.cor }}>
@@ -199,7 +199,12 @@ function ItemRecarga({ r }) {
         </span>
       </span>
       <span className="text-right">
-        <span className={`mt-num block text-[16px] font-bold ${r.estornada ? "text-[var(--mt-text-faint)] line-through" : ""}`}>{formatarValor(r.valor)}</span>
+        <span className={`mt-num block text-[16px] font-bold ${r.estornada ? "text-[var(--mt-text-faint)] line-through" : ""}`}>
+          {formatarValor(r.valor - (r.estornada ? 0 : r.valor_devolvido || 0))}
+        </span>
+        {r.valor_devolvido > 0 && !r.estornada ? (
+          <span className="block text-[11px] font-bold text-[var(--mt-accent)]">+{formatarValor(r.valor_devolvido)} devolvido</span>
+        ) : null}
         <ChevronRight size={16} className="ml-auto mt-1 text-[var(--mt-text-faint)]" />
       </span>
     </Link>

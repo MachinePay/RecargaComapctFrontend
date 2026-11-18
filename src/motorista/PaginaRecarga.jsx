@@ -14,6 +14,7 @@ import { Esqueleto, Logo } from "./ui";
 
 const MOTIVOS_MOTORISTA = {
   tempo_esgotado: "Tempo pago concluido",
+  energia_atingida: "Energia paga entregue",
   carro_desconectado: "Voce desconectou o carro",
   parado_no_carregador: "Recarga parada no carregador",
   encerrada_pelo_admin: "Encerrada pelo responsavel do local",
@@ -154,7 +155,7 @@ function TelaPix({ cobranca, segundos, acao, onSimular, onTrocar }) {
     <section className="mt-entrar">
       <h1 className="mt-1 text-[28px] font-extrabold leading-tight tracking-[-0.04em]">Pague com Pix</h1>
       <p className="mt-1 text-[14px] font-semibold text-[var(--mt-text-soft)]">
-        {duracao(cobranca.minutos * 60)} de recarga · assim que o banco confirmar, o carregador libera sozinho.
+        {cobranca.kwh != null ? formatarKwh(cobranca.kwh) : duracao(cobranca.minutos * 60)} de recarga · assim que o banco confirmar, o carregador libera sozinho.
       </p>
 
       <div className="mt-5 rounded-[28px] bg-white p-5 text-[#0b1210] shadow-[0_30px_80px_rgba(0,0,0,0.5)]">
@@ -268,6 +269,7 @@ function Resumo({ itens }) {
 }
 
 function TelaSessao({ cobranca, sessao, recebidoEm, agora }) {
+  if (sessao.kwh_pagos != null) return <TelaSessaoKwh cobranca={cobranca} sessao={sessao} />;
   const segundos = restante(sessao.segundos_restantes, recebidoEm, agora);
   const total = sessao.minutos_pagos * 60;
 
@@ -322,6 +324,93 @@ function TelaSessao({ cobranca, sessao, recebidoEm, agora }) {
             ["Valor", formatarValor(cobranca.valor)],
           ]}
         />
+        <AvisoInstalar className="mt-4 text-left" />
+        <Link to="/app/historico" className="mt-btn mt-btn--primario mt-4 w-full py-3.5">
+          <History size={18} /> Ver meu historico
+        </Link>
+        <Link to="/app" className="mt-btn mt-btn--fantasma w-full py-3.5">
+          <MapPin size={18} /> Voltar ao mapa
+        </Link>
+      </Final>
+    );
+  }
+  return (
+    <Final
+      cor="var(--mt-defeito)"
+      icone={<CircleX size={36} />}
+      titulo="A recarga nao comecou"
+      texto={`${MOTIVOS_MOTORISTA[sessao.motivo_fim] || "Algo deu errado no carregador"}. ${
+        cobranca.estornada ? `Seu Pix de ${formatarValor(cobranca.valor)} foi devolvido.` : "Seu Pix sera devolvido automaticamente."
+      }`}
+    >
+      <Link to="/app" className="mt-btn mt-btn--primario w-full py-3.5">
+        <MapPin size={18} /> Ver outros carregadores
+      </Link>
+    </Final>
+  );
+}
+
+
+// Recarga por kWh: o progresso e' a energia entregue; no fim mostra quanto
+// foi usado e quanto voltou para o motorista.
+function TelaSessaoKwh({ cobranca, sessao }) {
+  const pagos = sessao.kwh_pagos;
+  if (sessao.status === "aguardando_inicio") {
+    return <Etapa animado icone={<Zap size={44} fill="currentColor" />} titulo="Pagamento aprovado!" texto="Liberando o carregador para voce. Leva so alguns segundos." />;
+  }
+  if (sessao.status === "aguardando_carro") {
+    return (
+      <Etapa
+        animado
+        icone={<Plug size={44} />}
+        titulo="Conecte o cabo no carro"
+        texto={`Encaixe o conector no seu carro. O carregador para sozinho ao entregar ${formatarKwh(pagos)}.`}
+      />
+    );
+  }
+  if (sessao.status === "carregando" && !sessao.energia_desde && !sessao.energia_kwh) {
+    return <Etapa animado icone={<BatteryCharging size={44} />} titulo="Quase la..." texto="O carregador ja esta ligado. Esperando o carro comecar a puxar energia." />;
+  }
+  if (sessao.status === "carregando" || sessao.status === "encerrando") {
+    const encerrando = sessao.status === "encerrando";
+    return (
+      <section className="mt-entrar mt-6">
+        <Anel progresso={Math.min(1, (sessao.energia_kwh || 0) / Math.max(0.01, pagos))}>
+          <div>
+            <BatteryCharging size={26} className="mt-raio mx-auto text-[var(--mt-accent)]" />
+            <p className="mt-num mt-2 text-[44px] font-bold leading-none">{formatarKwh(sessao.energia_kwh)}</p>
+            <p className="mt-2 text-[13px] font-bold text-[var(--mt-text-soft)]">{encerrando ? "Finalizando..." : `de ${formatarKwh(pagos)}`}</p>
+          </div>
+        </Anel>
+        <h1 className="mt-4 text-center text-[24px] font-extrabold tracking-[-0.03em]">{encerrando ? "Finalizando a recarga" : "Carregando"}</h1>
+        <Resumo
+          itens={[
+            ["Falta", formatarKwh(sessao.kwh_restantes)],
+            ["Energia paga", formatarKwh(pagos)],
+            ["Valor", formatarValor(cobranca.valor)],
+          ]}
+        />
+        <p className="mt-4 text-center text-[12.5px] font-semibold text-[var(--mt-text-faint)]">
+          Pode fechar esta tela. O carregador para sozinho ao entregar a energia paga. Se o carro encher antes, devolvemos o que sobrar.
+        </p>
+      </section>
+    );
+  }
+  if (sessao.status === "finalizada") {
+    const devolvido = cobranca.valor_devolvido || 0;
+    let devolucao = "Calculando o que sobrou...";
+    if (devolvido > 0) devolucao = `Devolvemos ${formatarValor(devolvido)} que voce nao usou. Pelo Pix cai na hora; no cartao, aparece na fatura.`;
+    else if (cobranca.valor_consumido != null) devolucao = "Voce usou toda a energia paga.";
+    return (
+      <Final cor="var(--mt-accent)" icone={<CircleCheck size={36} />} titulo="Recarga concluida" texto={`${MOTIVOS_MOTORISTA[sessao.motivo_fim] || "Recarga encerrada"}. Ja pode desconectar o cabo.`}>
+        <Resumo
+          itens={[
+            ["Energia", formatarKwh(sessao.energia_kwh)],
+            ["Pago", formatarValor(cobranca.valor)],
+            ["Usado", cobranca.valor_consumido != null ? formatarValor(cobranca.valor_consumido) : "..."],
+          ]}
+        />
+        <p className="mt-3 text-center text-[13px] font-semibold text-[var(--mt-text-soft)]">{devolucao}</p>
         <AvisoInstalar className="mt-4 text-left" />
         <Link to="/app/historico" className="mt-btn mt-btn--primario mt-4 w-full py-3.5">
           <History size={18} /> Ver meu historico
