@@ -33,7 +33,7 @@ import { BarraConexao, CartaoResumo, InfoPill, StatusCarregador } from "../compo
 import { STATUS_CARREGADOR, lerCoordenadas, qualidadeConexao, statusCarregador, textoConector } from "../utils/carregadores";
 import { confirmar } from "../utils/confirmar";
 import { campoClasse } from "../utils/estilos";
-import { STATUS_SESSAO, formatarDataHora, formatarKwh, formatarMinutos, formatarRelogio, formatarValor } from "../utils/formatos";
+import { STATUS_SESSAO, formatarDataHora, formatarKwh, formatarMinutos, formatarRelogio, formatarValor, horaDoFim } from "../utils/formatos";
 
 // Chamadas OCPP uteis para diagnostico, com o payload de exemplo.
 const COMANDOS_OCPP = {
@@ -349,11 +349,13 @@ export default function CarregadorDetalhe() {
     precoKwh: carregador.preco_kwh ?? "",
     teto: carregador.kwh_tempo_maximo_min ?? "",
     devolver: carregador.devolver_sobra !== false,
+    entrega: carregador.kwh_percentual_entrega ?? "",
   };
   const porKwh = precoForm.modo === "kwh";
   const precoValorNum = Number(String(precoForm.valor).replace(",", "."));
   const precoMinutosNum = Number(precoForm.minutos);
   const precoKwhNum = Number(String(precoForm.precoKwh).replace(",", "."));
+  const entregaNum = precoForm.entrega === "" ? 100 : Number(precoForm.entrega);
   const carregadorPorKwh = carregador.modo_cobranca === "kwh";
   const temPreco = carregadorPorKwh ? Boolean(carregador.preco_kwh) : Boolean(carregador.preco_valor);
 
@@ -365,6 +367,7 @@ export default function CarregadorDetalhe() {
           preco_kwh: precoKwhNum,
           kwh_tempo_maximo_min: precoForm.teto === "" ? null : Number(precoForm.teto),
           devolver_sobra: precoForm.devolver,
+          kwh_percentual_entrega: precoForm.entrega === "" ? null : Number(precoForm.entrega),
         }
       : { modo_cobranca: "tempo", preco_valor: precoValorNum, preco_minutos: precoMinutosNum };
     try {
@@ -559,6 +562,12 @@ export default function CarregadorDetalhe() {
                 {sessao.kwh_pagos != null ? (
                   <div className="mt-1 text-sm font-semibold text-blue-800">
                     Para sozinho ao entregar os kWh pagos (ou no tempo maximo).
+                    {sessao.segundos_previstos != null ? ` Previsao: termina ~${horaDoFim(sessao.segundos_previstos)}.` : ""}
+                  </div>
+                ) : null}
+                {carregador.potencia_media_kw ? (
+                  <div className="mt-1 text-xs text-[var(--color-text-soft)]">
+                    Este carregador entrega em media {carregador.potencia_media_kw.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kW
                   </div>
                 ) : null}
               </div>
@@ -738,6 +747,18 @@ export default function CarregadorDetalhe() {
                       onChange={(e) => setPreco({ ...precoForm, teto: e.target.value })}
                     />
                   </label>
+                  <label className="w-[170px]">
+                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">% do pago que vira energia</span>
+                    <input
+                      className={`${campoClasse} py-2`}
+                      type="number"
+                      min={50}
+                      max={100}
+                      placeholder="100"
+                      value={precoForm.entrega}
+                      onChange={(e) => setPreco({ ...precoForm, entrega: e.target.value })}
+                    />
+                  </label>
                 </div>
                 <label className="flex items-center gap-2 text-sm text-[var(--color-text)]">
                   <input type="checkbox" checked={precoForm.devolver} onChange={(e) => setPreco({ ...precoForm, devolver: e.target.checked })} />
@@ -745,6 +766,7 @@ export default function CarregadorDetalhe() {
                 </label>
                 <p className="text-xs text-[var(--color-text-soft)]">
                   O motorista paga um valor, que vira energia. O carregador para quando entrega os kWh pagos, quando o carro enche ou quando passa o tempo maximo.
+                  Em toda venda (maquininha, app e tablet) so esse percentual vira energia; o resto e' margem caso o carro puxe alem do ponto. No fim cobra o usado pelo preco do kWh e devolve a sobra.
                   O carregador precisa mandar a leitura do medidor (veja em Diagnostico se chega Energy.Active.Import.Register).
                 </p>
               </>
@@ -770,7 +792,7 @@ export default function CarregadorDetalhe() {
             <div className="mt-2 flex flex-wrap gap-1.5">
               {[10, 20, 50, 100].map((v) => (
                 <span key={v} className="rounded-full bg-[var(--color-bg-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text)]">
-                  {formatarValor(v)} → {formatarKwh(Math.floor((v / precoKwhNum) * 100) / 100)}
+                  {formatarValor(v)} → {formatarKwh(Math.floor(((v * entregaNum) / 100 / precoKwhNum) * 100) / 100)}
                 </span>
               ))}
             </div>

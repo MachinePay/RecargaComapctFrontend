@@ -7,7 +7,7 @@ import usePolling from "../hooks/usePolling";
 import Badge from "../components/Badge";
 import Cabecalho from "../components/Cabecalho";
 import LoadingSpinner from "../components/LoadingSpinner";
-import { STATUS_SESSAO, formatarKwh, formatarRelogio, formatarValor } from "../utils/formatos";
+import { STATUS_SESSAO, formatarKwh, formatarValor, textoRestante } from "../utils/formatos";
 
 function Indicador({ icone, titulo, valor, detalhe, alerta }) {
   return (
@@ -97,7 +97,7 @@ export default function Dashboard() {
                 <div className="mt-4 flex items-center justify-between rounded-[20px] bg-[var(--color-bg-muted)] px-4 py-3">
                   <Badge tom={status?.tom}>{status?.texto || sessao.status}</Badge>
                   <span className="text-xl font-extrabold tabular-nums text-[var(--color-primary-strong)]">
-                    {sessao.segundos_restantes != null ? formatarRelogio(sessao.segundos_restantes) : `${sessao.minutos_pagos} min`}
+                    {textoRestante(sessao) ?? (sessao.kwh_pagos != null ? formatarKwh(sessao.kwh_pagos) : `${sessao.minutos_pagos} min`)}
                   </span>
                 </div>
               ) : null}

@@ -23,6 +23,24 @@ export function formatarRelogio(segundos) {
   return h > 0 ? `${h}:${m}:${ss}` : `${m}:${ss}`;
 }
 
+// Quanto falta da recarga. Por tempo e' o relogio; por kWh e' uma previsao
+// pela potencia (vem com "~").
+export function restanteSessao(sessao) {
+  if (!sessao) return null;
+  return sessao.kwh_pagos != null ? sessao.segundos_previstos ?? null : sessao.segundos_restantes ?? null;
+}
+
+export function textoRestante(sessao, segundos = restanteSessao(sessao)) {
+  if (segundos == null) return null;
+  return sessao?.kwh_pagos != null ? `~${formatarRelogio(segundos)}` : formatarRelogio(segundos);
+}
+
+// "termina ~15:40" a partir dos segundos que faltam.
+export function horaDoFim(segundos) {
+  if (segundos == null) return null;
+  return dayjs().add(segundos, "second").format("HH:mm");
+}
+
 export const formatarKwh = (kwh) => `${Number(kwh || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kWh`;
 
 // O backend grava UTC sem fuso; mostra no horario de Brasilia.

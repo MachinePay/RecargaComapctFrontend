@@ -269,7 +269,7 @@ function Resumo({ itens }) {
 }
 
 function TelaSessao({ cobranca, sessao, recebidoEm, agora }) {
-  if (sessao.kwh_pagos != null) return <TelaSessaoKwh cobranca={cobranca} sessao={sessao} />;
+  if (sessao.kwh_pagos != null) return <TelaSessaoKwh cobranca={cobranca} sessao={sessao} recebidoEm={recebidoEm} agora={agora} />;
   const segundos = restante(sessao.segundos_restantes, recebidoEm, agora);
   const total = sessao.minutos_pagos * 60;
 
@@ -353,8 +353,10 @@ function TelaSessao({ cobranca, sessao, recebidoEm, agora }) {
 
 // Recarga por kWh: o progresso e' a energia entregue; no fim mostra quanto
 // foi usado e quanto voltou para o motorista.
-function TelaSessaoKwh({ cobranca, sessao }) {
+function TelaSessaoKwh({ cobranca, sessao, recebidoEm, agora }) {
   const pagos = sessao.kwh_pagos;
+  // Previsao pela potencia que o carro puxa agora (ou a media do carregador).
+  const previsto = restante(sessao.segundos_previstos, recebidoEm, agora);
   if (sessao.status === "aguardando_inicio") {
     return <Etapa animado icone={<Zap size={44} fill="currentColor" />} titulo="Pagamento aprovado!" texto="Liberando o carregador para voce. Leva so alguns segundos." />;
   }
@@ -382,6 +384,11 @@ function TelaSessaoKwh({ cobranca, sessao }) {
             <p className="mt-2 text-[13px] font-bold text-[var(--mt-text-soft)]">{encerrando ? "Finalizando..." : `de ${formatarKwh(pagos)}`}</p>
           </div>
         </Anel>
+        {!encerrando && previsto != null ? (
+          <p className="mt-3 text-center text-[14px] font-bold text-[var(--mt-accent)]">
+            Faltam ~{duracao(previsto)} · termina por volta das {horaDaqui(previsto, agora)}
+          </p>
+        ) : null}
         <h1 className="mt-4 text-center text-[24px] font-extrabold tracking-[-0.03em]">{encerrando ? "Finalizando a recarga" : "Carregando"}</h1>
         <Resumo
           itens={[

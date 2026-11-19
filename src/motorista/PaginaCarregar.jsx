@@ -27,7 +27,8 @@ const PASSOS = [
 
 // Valor em reais pela regra do carregador (o servidor recalcula igual).
 const valorDe = (c, minutos) => (c?.preco_valor && c?.preco_minutos ? Math.round(((minutos * c.preco_valor) / c.preco_minutos) * 100) / 100 : 0);
-const valorKwh = (c, kwh) => (c?.preco_kwh ? Math.round(kwh * c.preco_kwh * 100) / 100 : 0);
+// Pre-pago com margem: o Pix leva um pouco a mais e o que nao usar volta.
+const valorKwh = (c, kwh) => (c?.preco_kwh ? Math.round(((kwh * c.preco_kwh * 100) / (c.percentual_entrega || 100)) * 100) / 100 : 0);
 
 export default function PaginaCarregar() {
   const id = carregadorLido();
@@ -97,7 +98,8 @@ export default function PaginaCarregar() {
       ? ((kwh - c.kwh_min) / Math.max(1, c.kwh_max - c.kwh_min)) * 100
       : ((minutos - c.minutos_min) / Math.max(1, c.minutos_max - c.minutos_min)) * 100;
   // Estimativa de energia so com a corrente configurada (220 V, monofasico).
-  const kwhEstimado = c?.corrente_maxima_a ? (220 * c.corrente_maxima_a * minutos) / 60 / 1000 : null;
+  // Pela potencia media das ultimas recargas (ou pela corrente configurada).
+  const kwhEstimado = c?.potencia_media_kw ? (c.potencia_media_kw * minutos) / 60 : null;
 
   return (
     <div className="mt-app">
@@ -135,7 +137,7 @@ export default function PaginaCarregar() {
             </section>
 
             {livre && c.aceita_pix && porKwh ? (
-              <EscolherKwh c={c} kwh={kwh} setKwh={setKwh} valor={valor} porcentagem={porcentagem} />
+              <EscolherKwh c={c} kwh={kwh} setKwh={setKwh} valor={valor} porcentagem={porcentagem} agora={agora} />
             ) : null}
             {livre && c.aceita_pix ? (
               <>
@@ -244,9 +246,10 @@ export default function PaginaCarregar() {
   );
 }
 
-function EscolherKwh({ c, kwh, setKwh, valor, porcentagem }) {
-  // Estimativa de tempo pela corrente configurada (220 V, monofasico).
-  const potenciaKw = c.corrente_maxima_a ? (220 * c.corrente_maxima_a) / 1000 : null;
+function EscolherKwh({ c, kwh, setKwh, valor, porcentagem, agora }) {
+  // Potencia media das ultimas recargas deste carregador (o servidor cai
+  // na corrente configurada quando ainda nao tem historico).
+  const potenciaKw = c.potencia_media_kw || null;
   return (
     <section className="mt-entrar mt-6 rounded-[28px] border border-[var(--mt-border)] bg-[linear-gradient(160deg,#14241d,#0c1512)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
       <p className="text-center text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--mt-text-soft)]">Quanta energia?</p>
@@ -255,8 +258,17 @@ function EscolherKwh({ c, kwh, setKwh, valor, porcentagem }) {
         <p className="mt-num mt-2 text-[28px] font-bold">{formatarValor(valor)}</p>
         <p className="mt-1 text-[12.5px] font-semibold text-[var(--mt-text-soft)]">
           {formatarValor(c.preco_kwh)} por kWh
-          {potenciaKw ? ` · cerca de ${duracao((kwh / potenciaKw) * 3600)} carregando` : ""}
         </p>
+        {potenciaKw ? (
+          <p className="mt-1 text-[13px] font-bold text-[var(--mt-accent)]">
+            Leva cerca de {duracao((kwh / potenciaKw) * 3600)} · termina por volta das {horaDaqui((kwh / potenciaKw) * 3600, agora)}
+          </p>
+        ) : null}
+        {(c.percentual_entrega || 100) < 100 ? (
+          <p className="mt-1 text-[12px] font-semibold text-[var(--mt-text-faint)]">
+            A energia custa {formatarValor(kwh * c.preco_kwh)}. O resto e' uma reserva: voce paga so o que usar e o que sobrar volta no seu Pix.
+          </p>
+        ) : null}
       </div>
 
       <input

@@ -15,7 +15,7 @@ import Paginacao from "../components/Paginacao";
 import { BarraConexao, CabecalhoOrdenavel, CartaoResumo, InfoPill, StatusCarregador } from "../components/CarregadorUi";
 import { STATUS_CARREGADOR, proximaOrdem, statusCarregador, textoConector } from "../utils/carregadores";
 import { campoClasse } from "../utils/estilos";
-import { formatarDataHora, formatarKwh, formatarRelogio, formatarValor } from "../utils/formatos";
+import { formatarDataHora, formatarKwh, formatarValor, textoRestante } from "../utils/formatos";
 
 const formVazio = {
   cliente_id: "",
@@ -54,7 +54,7 @@ function Atividade({ c }) {
     return (
       <>
         <div className="font-bold tabular-nums text-blue-700">
-          {sessao.segundos_restantes != null ? formatarRelogio(sessao.segundos_restantes) : "Aguardando carro"}
+          {textoRestante(sessao) ?? "Aguardando carro"}
         </div>
         <div className="truncate text-[11px] text-[var(--color-text-soft)]">Recarga #{sessao.id} · {formatarKwh(sessao.energia_kwh)}</div>
       </>
@@ -435,7 +435,7 @@ export default function Carregadores() {
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
               <InfoPill rotulo="Hoje">{formatarValor(c.faturamento_hoje)}</InfoPill>
               <InfoPill rotulo="Agora">
-                {c.sessao_ativa?.segundos_restantes != null ? formatarRelogio(c.sessao_ativa.segundos_restantes) : textoConector(c)}
+                {textoRestante(c.sessao_ativa) ?? textoConector(c)}
               </InfoPill>
               <InfoPill rotulo="Cliente">{c.cliente_nome || "-"}</InfoPill>
               <div className="rounded-[14px] bg-[var(--color-bg-muted)] px-3 py-2">

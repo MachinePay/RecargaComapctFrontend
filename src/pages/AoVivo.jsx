@@ -8,7 +8,7 @@ import usePolling from "../hooks/usePolling";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { CartaoResumo, StatusCarregador } from "../components/CarregadorUi";
 import { statusCarregador, textoConector } from "../utils/carregadores";
-import { MOTIVOS_FIM, STATUS_SESSAO, formatarHora, formatarKwh, formatarRelogio, formatarValor } from "../utils/formatos";
+import { MOTIVOS_FIM, STATUS_SESSAO, formatarHora, formatarKwh, formatarValor, restanteSessao, textoRestante } from "../utils/formatos";
 
 // Tela para deixar aberta numa TV ou monitor (igual Ao Vivo da CompactPay).
 export default function AoVivo() {
@@ -65,8 +65,10 @@ export default function AoVivo() {
         <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
           {ordenados.map((c) => {
             const sessao = c.sessao_ativa;
-            const restante = sessao?.segundos_restantes != null ? Math.max(0, sessao.segundos_restantes - decorrido) : null;
-            const total = sessao?.minutos_pagos ? sessao.minutos_pagos * 60 : null;
+            const base = restanteSessao(sessao);
+            const restante = base != null ? Math.max(0, base - decorrido) : null;
+            // Por kWh a barra nao e' de tempo (o teto nao e' o fim previsto).
+            const total = sessao?.minutos_pagos && sessao.kwh_pagos == null ? sessao.minutos_pagos * 60 : null;
             return (
               <Link
                 key={c.id_hardware}
@@ -82,7 +84,7 @@ export default function AoVivo() {
                 </div>
                 {sessao ? (
                   <>
-                    <div className="mt-3 text-4xl font-extrabold tabular-nums text-blue-700">{restante != null ? formatarRelogio(restante) : "--:--"}</div>
+                    <div className="mt-3 text-4xl font-extrabold tabular-nums text-blue-700">{restante != null ? textoRestante(sessao, restante) : "--:--"}</div>
                     <div className="text-xs text-[var(--color-text-soft)]">
                       {STATUS_SESSAO[sessao.status]?.texto || sessao.status} · {formatarKwh(sessao.energia_kwh)}
                     </div>
