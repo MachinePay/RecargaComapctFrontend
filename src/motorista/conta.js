@@ -37,6 +37,20 @@ export function guardarConta(resposta, manter) {
   avisar();
 }
 
+// Dados novos do motorista (ex.: saldo da carteira) sem trocar o login.
+export function atualizarMotorista(motorista) {
+  const atual = contaAtual();
+  if (!atual || !motorista) return;
+  cache = { ...atual, motorista: { ...atual.motorista, ...motorista } };
+  try {
+    const onde = localStorage.getItem(CHAVE) ? localStorage : sessionStorage;
+    onde.setItem(CHAVE, JSON.stringify(cache));
+  } catch {
+    // sem storage: so em memoria
+  }
+  avisar();
+}
+
 export function sairDaConta() {
   cache = null;
   try {

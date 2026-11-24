@@ -19,6 +19,9 @@ const ATIVAS = ["aguardando_inicio", "aguardando_carro", "carregando", "encerran
 const numero = (valor, casas = 0) => Number(valor || 0).toLocaleString("pt-BR", { maximumFractionDigits: casas, minimumFractionDigits: 0 });
 
 // O backend grava em UTC sem fuso.
+// Quanto a recarga custou de verdade: o usado (carteira) ou o pago menos o devolvido.
+const gasto = (r) =>
+  r.carteira ? (r.valor_consumido ?? r.total) : r.valor - (r.valor_devolvido || 0);
 const data = (valor) => (valor ? new Date(`${String(valor).replace(" ", "T")}Z`) : null);
 
 function situacaoDaRecarga(r) {
@@ -57,7 +60,7 @@ export default function PaginaHistorico() {
         grupos.push(grupo);
       }
       grupo.itens.push({ ...r, quando });
-      if (!r.estornada) grupo.valor += r.valor - (r.valor_devolvido || 0);
+      if (!r.estornada) grupo.valor += gasto(r);
     }
     return grupos;
   }, [dados]);
@@ -200,8 +203,11 @@ function ItemRecarga({ r }) {
       </span>
       <span className="text-right">
         <span className={`mt-num block text-[16px] font-bold ${r.estornada ? "text-[var(--mt-text-faint)] line-through" : ""}`}>
-          {formatarValor(r.valor - (r.estornada ? 0 : r.valor_devolvido || 0))}
+          {formatarValor(r.estornada ? r.valor : gasto(r))}
         </span>
+        {r.valor_creditado > 0 && !r.estornada ? (
+          <span className="block text-[11px] font-bold text-[var(--mt-accent)]">+{formatarValor(r.valor_creditado)} na carteira</span>
+        ) : null}
         {r.valor_devolvido > 0 && !r.estornada ? (
           <span className="block text-[11px] font-bold text-[var(--mt-accent)]">+{formatarValor(r.valor_devolvido)} devolvido</span>
         ) : null}

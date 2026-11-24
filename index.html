@@ -17,7 +17,7 @@
       // O site instala como app do motorista (manifest.webmanifest abre no
       // /app). So as telas do painel trocam para o manifest do painel, para o
       // app instalado nunca cair no login do painel.
-      if (/^\/(login|dashboard|carregadores|sessoes|diagnostico|clientes|mapa|gestao|whatsapp|usuarios|quedas|saude|ao-vivo)(\/|$)/.test(location.pathname)) {
+      if (/^\/(login|dashboard|carregadores|sessoes|diagnostico|clientes|mapa|gestao|whatsapp|usuarios|motoristas|quedas|saude|ao-vivo)(\/|$)/.test(location.pathname)) {
         document.querySelector('link[rel="manifest"]').href = "/manifest-painel.webmanifest";
         document.querySelector('meta[name="theme-color"]').content = "#1f7a4c";
         document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content = "default";

@@ -8,9 +8,10 @@ import { ArrowLeft, BatteryCharging, CircleUserRound, Clock, History, LoaderCirc
 import usePolling from "../hooks/usePolling";
 import { formatarValor } from "../utils/formatos";
 import { apiPublica, carregadorLido, dispositivo, guardarCarregadorDoQr, lembrarRecarga, mensagemErro } from "./servicos";
-import { SITUACOES, duracao, formatarKwhCurto, horaDaqui, restante, textoSituacao, useAgora } from "./regras";
+import { SITUACOES, duracao, horaDaqui, restante, textoSituacao, useAgora } from "./regras";
 import { useConta } from "./conta";
 import FormConta from "./FormConta";
+import CompraKwh from "./CompraKwh";
 import { Esqueleto, Logo, SeloSituacao } from "./ui";
 
 export function EntradaQr() {
@@ -27,8 +28,6 @@ const PASSOS = [
 
 // Valor em reais pela regra do carregador (o servidor recalcula igual).
 const valorDe = (c, minutos) => (c?.preco_valor && c?.preco_minutos ? Math.round(((minutos * c.preco_valor) / c.preco_minutos) * 100) / 100 : 0);
-// Pre-pago com margem: o Pix leva um pouco a mais e o que nao usar volta.
-const valorKwh = (c, kwh) => (c?.preco_kwh ? Math.round(((kwh * c.preco_kwh * 100) / (c.percentual_entrega || 100)) * 100) / 100 : 0);
 
 export default function PaginaCarregar() {
   const id = carregadorLido();
@@ -38,7 +37,6 @@ export default function PaginaCarregar() {
   const [recebidoEm, setRecebidoEm] = useState(0);
   const [erro, setErro] = useState("");
   const [minutos, setMinutos] = useState(60);
-  const [kwh, setKwh] = useState(20);
   const [gerando, setGerando] = useState(false);
   const [erroPix, setErroPix] = useState("");
   const iniciouRef = useRef(false);
@@ -53,8 +51,7 @@ export default function PaginaCarregar() {
       if (!iniciouRef.current) {
         // Primeira carga: comeca em 1 h (dentro da faixa permitida).
         iniciouRef.current = true;
-        if (data.modo_cobranca === "kwh") setKwh(Math.min(Math.max(20, data.kwh_min), data.kwh_max));
-        else setMinutos(Math.min(Math.max(60, data.minutos_min), data.minutos_max));
+        if (data.modo_cobranca !== "kwh") setMinutos(Math.min(Math.max(60, data.minutos_min), data.minutos_max));
       }
       setC(data);
       setRecebidoEm(Date.now());
@@ -72,8 +69,7 @@ export default function PaginaCarregar() {
     setGerando(true);
     setErroPix("");
     try {
-      const compra = c?.modo_cobranca === "kwh" ? { kwh } : { minutos };
-      const { data } = await apiPublica.post("/pix", { carregador_id: id, ...compra, dispositivo: dispositivo() });
+      const { data } = await apiPublica.post("/pix", { carregador_id: id, minutos, dispositivo: dispositivo() });
       lembrarRecarga(data.id);
       navigate(`/app/recarga/${data.id}`, { replace: true });
     } catch (e) {
@@ -90,14 +86,9 @@ export default function PaginaCarregar() {
   };
 
   const porKwh = c?.modo_cobranca === "kwh";
-  const valor = porKwh ? valorKwh(c, kwh) : valorDe(c, minutos);
+  const valor = valorDe(c, minutos);
   const livre = c?.situacao === "livre";
-  const porcentagem = !c
-    ? 0
-    : porKwh
-      ? ((kwh - c.kwh_min) / Math.max(1, c.kwh_max - c.kwh_min)) * 100
-      : ((minutos - c.minutos_min) / Math.max(1, c.minutos_max - c.minutos_min)) * 100;
-  // Estimativa de energia so com a corrente configurada (220 V, monofasico).
+  const porcentagem = !c || porKwh ? 0 : ((minutos - c.minutos_min) / Math.max(1, c.minutos_max - c.minutos_min)) * 100;
   // Pela potencia media das ultimas recargas (ou pela corrente configurada).
   const kwhEstimado = c?.potencia_media_kw ? (c.potencia_media_kw * minutos) / 60 : null;
 
@@ -137,11 +128,11 @@ export default function PaginaCarregar() {
             </section>
 
             {livre && c.aceita_pix && porKwh ? (
-              <EscolherKwh c={c} kwh={kwh} setKwh={setKwh} valor={valor} porcentagem={porcentagem} agora={agora} />
-            ) : null}
-            {livre && c.aceita_pix ? (
+              // Por kWh: carteira, conta detalhada, Pix ou cartao (CompraKwh.jsx).
+              <CompraKwh c={c} agora={agora} onAtualizar={carregar} />
+            ) : livre && c.aceita_pix ? (
               <>
-                {!porKwh && <section className="mt-entrar mt-6 rounded-[28px] border border-[var(--mt-border)] bg-[linear-gradient(160deg,#14241d,#0c1512)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+                <section className="mt-entrar mt-6 rounded-[28px] border border-[var(--mt-border)] bg-[linear-gradient(160deg,#14241d,#0c1512)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
                   <p className="text-center text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--mt-text-soft)]">Quanto tempo de recarga?</p>
                   <div className="mt-3 text-center">
                     <p className="mt-num mt-brilho text-[64px] font-bold leading-none text-[var(--mt-accent)]">{duracao(minutos * 60)}</p>
@@ -185,7 +176,7 @@ export default function PaginaCarregar() {
                       </button>
                     ))}
                   </div>
-                </section>}
+                </section>
 
                 <ol className="mt-entrar mt-5 grid grid-cols-3 gap-2">
                   {PASSOS.map((passo, i) => (
@@ -243,66 +234,6 @@ export default function PaginaCarregar() {
         />
       )}
     </div>
-  );
-}
-
-function EscolherKwh({ c, kwh, setKwh, valor, porcentagem, agora }) {
-  // Potencia media das ultimas recargas deste carregador (o servidor cai
-  // na corrente configurada quando ainda nao tem historico).
-  const potenciaKw = c.potencia_media_kw || null;
-  return (
-    <section className="mt-entrar mt-6 rounded-[28px] border border-[var(--mt-border)] bg-[linear-gradient(160deg,#14241d,#0c1512)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
-      <p className="text-center text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--mt-text-soft)]">Quanta energia?</p>
-      <div className="mt-3 text-center">
-        <p className="mt-num mt-brilho text-[64px] font-bold leading-none text-[var(--mt-accent)]">{formatarKwhCurto(kwh)}</p>
-        <p className="mt-num mt-2 text-[28px] font-bold">{formatarValor(valor)}</p>
-        <p className="mt-1 text-[12.5px] font-semibold text-[var(--mt-text-soft)]">
-          {formatarValor(c.preco_kwh)} por kWh
-        </p>
-        {potenciaKw ? (
-          <p className="mt-1 text-[13px] font-bold text-[var(--mt-accent)]">
-            Leva cerca de {duracao((kwh / potenciaKw) * 3600)} · termina por volta das {horaDaqui((kwh / potenciaKw) * 3600, agora)}
-          </p>
-        ) : null}
-        {(c.percentual_entrega || 100) < 100 ? (
-          <p className="mt-1 text-[12px] font-semibold text-[var(--mt-text-faint)]">
-            A energia custa {formatarValor(kwh * c.preco_kwh)}. O resto e' uma reserva: voce paga so o que usar e o que sobrar volta no seu Pix.
-          </p>
-        ) : null}
-      </div>
-
-      <input
-        type="range"
-        min={c.kwh_min}
-        max={c.kwh_max}
-        step={1}
-        value={kwh}
-        onChange={(e) => setKwh(Number(e.target.value))}
-        className="mt-faixa mt-6"
-        style={{ "--p": `${porcentagem}%` }}
-        aria-label="Energia da recarga"
-      />
-      <div className="mt-1.5 flex justify-between text-[11px] font-bold text-[var(--mt-text-faint)]">
-        <span>{formatarKwhCurto(c.kwh_min)}</span>
-        <span>{formatarKwhCurto(c.kwh_max)}</span>
-      </div>
-
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        {c.opcoes.map((o) => (
-          <button
-            key={o.kwh}
-            type="button"
-            onClick={() => setKwh(o.kwh)}
-            className={`rounded-2xl border px-2 py-2.5 text-center transition active:scale-95 ${
-              kwh === o.kwh ? "border-[var(--mt-accent)] bg-[var(--mt-accent)]/15" : "border-[var(--mt-border)] bg-[var(--mt-surface-soft)]"
-            }`}
-          >
-            <span className="mt-num block text-[16px] font-bold">{formatarKwhCurto(o.kwh)}</span>
-            <span className="block text-[12px] font-semibold text-[var(--mt-text-soft)]">{formatarValor(o.valor)}</span>
-          </button>
-        ))}
-      </div>
-    </section>
   );
 }
 

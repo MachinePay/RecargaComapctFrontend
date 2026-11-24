@@ -1,4 +1,4 @@
-import { BarChart3, BatteryCharging, Building2, Gift, HeartPulse, Home, LogOut, Map, Menu, MessageCircle, PlugZap, Radio, Stethoscope, Users, WifiOff, X } from "lucide-react";
+import { BarChart3, BatteryCharging, Building2, Gift, HeartPulse, Home, LogOut, Map, Menu, MessageCircle, PlugZap, Radio, Stethoscope, Users, Wallet, WifiOff, X } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
@@ -29,6 +29,7 @@ export default function Sidebar() {
     { to: "/vouchers", Icone: Gift, texto: "Vouchers" },
     { to: "/clientes", Icone: Building2, texto: "Clientes", admin: true },
     { to: "/usuarios", Icone: Users, texto: "Usuarios", admin: true },
+    { to: "/motoristas", Icone: Wallet, texto: "Motoristas", admin: true },
     { to: "/whatsapp", Icone: MessageCircle, texto: "WhatsApp", admin: true },
     { to: "/diagnostico", Icone: Stethoscope, texto: "Diagnostico", admin: true },
   ].filter((item) => isAdmin || !item.admin);

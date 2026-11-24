@@ -15,6 +15,7 @@ const Mapa = lazy(() => import("./pages/Mapa"));
 const Gestao = lazy(() => import("./pages/Gestao"));
 const Whatsapp = lazy(() => import("./pages/Whatsapp"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
+const Motoristas = lazy(() => import("./pages/Motoristas"));
 const Quedas = lazy(() => import("./pages/Quedas"));
 const Saude = lazy(() => import("./pages/Saude"));
 const AoVivo = lazy(() => import("./pages/AoVivo"));
@@ -28,6 +29,7 @@ const EntradaQr = lazy(() => import("./motorista/PaginaCarregar").then((m) => ({
 const PaginaRecarga = lazy(() => import("./motorista/PaginaRecarga"));
 const PaginaHistorico = lazy(() => import("./motorista/PaginaHistorico"));
 const PaginaConta = lazy(() => import("./motorista/PaginaConta"));
+const PaginaCarteira = lazy(() => import("./motorista/PaginaCarteira"));
 const PaginaVoucher = lazy(() => import("./motorista/PaginaVoucher"));
 
 function PrivateRoute({ children }) {
@@ -75,6 +77,7 @@ export default function AppRoutes() {
           <Route path="/app/recarga/:cobrancaId" element={<PaginaRecarga />} />
           <Route path="/app/historico" element={<PaginaHistorico />} />
           <Route path="/app/conta" element={<PaginaConta />} />
+          <Route path="/app/carteira" element={<PaginaCarteira />} />
           <Route path="/v/:codigo" element={<PaginaVoucher />} />
 
           <Route path="/" element={<Inicio />} />
@@ -88,6 +91,7 @@ export default function AppRoutes() {
           <Route path="/gestao" element={<PrivatePage><Gestao /></PrivatePage>} />
           <Route path="/whatsapp" element={<AdminPage><Whatsapp /></AdminPage>} />
           <Route path="/usuarios" element={<AdminPage><Usuarios /></AdminPage>} />
+          <Route path="/motoristas" element={<AdminPage><Motoristas /></AdminPage>} />
           <Route path="/quedas" element={<PrivatePage><Quedas /></PrivatePage>} />
           <Route path="/saude" element={<PrivatePage><Saude /></PrivatePage>} />
           <Route path="/ao-vivo" element={<PrivatePage><AoVivo /></PrivatePage>} />

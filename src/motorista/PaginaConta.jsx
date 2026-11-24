@@ -1,20 +1,28 @@
 // Aba Conta do motorista: entrar/criar conta ou ver a conta e sair.
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { History, LogOut, ShieldCheck, Smartphone } from "lucide-react";
+import { History, LogOut, ShieldCheck, Smartphone, Wallet } from "lucide-react";
+import { formatarValor } from "../utils/formatos";
 import AvisoInstalar from "./AvisoInstalar";
 import FormConta from "./FormConta";
-import { mascaraCelular, sairDaConta, useConta } from "./conta";
+import { atualizarMotorista, mascaraCelular, sairDaConta, useConta } from "./conta";
+import { apiPublica, conferirConta, mensagemErro } from "./servicos";
 import { Logo, NavMotorista } from "./ui";
 
 const VANTAGENS = [
   { icone: History, texto: "Seu historico de recargas em qualquer celular" },
   { icone: Smartphone, texto: "Trocou de celular? Entre e esta tudo la" },
-  { icone: ShieldCheck, texto: "Opcional: da para pagar sem conta" },
+  { icone: Wallet, texto: "Carteira: a sobra das recargas por kWh fica guardada para a proxima" },
+  { icone: ShieldCheck, texto: "Nos carregadores por tempo, da para pagar sem conta" },
 ];
 
 export default function PaginaConta() {
   const conta = useConta();
   const motorista = conta?.motorista;
+  // Saldo da carteira atualizado ao abrir a tela.
+  useEffect(() => {
+    conferirConta(true);
+  }, []);
 
   return (
     <div className="mt-app">
@@ -32,10 +40,25 @@ export default function PaginaConta() {
               <div className="min-w-0">
                 <h1 className="truncate text-[26px] font-extrabold leading-tight tracking-[-0.03em]">Ola, {motorista.nome.split(" ")[0]}!</h1>
                 <p className="mt-num text-[15px] font-semibold text-[var(--mt-text-soft)]">{mascaraCelular(motorista.telefone)}</p>
+                {motorista.email && <p className="truncate text-[13px] font-semibold text-[var(--mt-text-faint)]">{motorista.email}</p>}
               </div>
             </div>
 
-            <Link to="/app/historico" className="mt-card mt-6 flex items-center gap-3 p-4">
+            {!motorista.email && <CadastrarEmail />}
+
+            <Link to="/app/carteira" className="mt-card mt-6 flex items-center gap-3 p-4">
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--mt-accent)]/15 text-[var(--mt-accent)]">
+                <Wallet size={20} />
+              </span>
+              <span className="flex-1">
+                <span className="block text-[15px] font-extrabold">Minha carteira</span>
+                <span className="block text-[12.5px] font-semibold text-[var(--mt-text-soft)]">
+                  Saldo {formatarValor(motorista.saldo || 0)} · a sobra das recargas fica aqui
+                </span>
+              </span>
+            </Link>
+
+            <Link to="/app/historico" className="mt-card mt-3 flex items-center gap-3 p-4">
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--mt-accent)]/15 text-[var(--mt-accent)]">
                 <History size={20} />
               </span>
@@ -54,7 +77,7 @@ export default function PaginaConta() {
         ) : (
           <section className="mt-entrar mt-8">
             <h1 className="text-[30px] font-extrabold leading-tight tracking-[-0.04em]">Entre na sua conta</h1>
-            <p className="mt-1.5 text-[14px] font-semibold text-[var(--mt-text-soft)]">So o seu celular e uma senha.</p>
+            <p className="mt-1.5 text-[14px] font-semibold text-[var(--mt-text-soft)]">Entre com o celular ou o e-mail e a sua senha.</p>
             <ul className="mt-5 space-y-2">
               {VANTAGENS.map((v) => (
                 <li key={v.texto} className="flex items-center gap-2.5 text-[13.5px] font-semibold text-[var(--mt-text-soft)]">
@@ -77,5 +100,47 @@ export default function PaginaConta() {
       </div>
       <NavMotorista />
     </div>
+  );
+}
+
+
+// Conta antiga (so celular): cadastra o e-mail para tambem entrar com ele.
+function CadastrarEmail() {
+  const [email, setEmail] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const salvar = async (e) => {
+    e.preventDefault();
+    setEnviando(true);
+    setErro("");
+    try {
+      const { data } = await apiPublica.patch("/eu", { email });
+      atualizarMotorista(data);
+    } catch (falha) {
+      setErro(mensagemErro(falha));
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <form onSubmit={salvar} className="mt-card mt-6 space-y-2.5 p-4">
+      <p className="text-[15px] font-extrabold">Cadastre seu e-mail</p>
+      <p className="text-[12.5px] font-semibold text-[var(--mt-text-soft)]">Assim voce tambem entra com o e-mail, alem do celular.</p>
+      <input
+        className="w-full rounded-2xl border border-[var(--mt-border-strong)] bg-[var(--mt-surface-soft)] px-4 py-3 text-[16px] font-semibold outline-none focus:border-[var(--mt-accent)]"
+        type="email"
+        placeholder="Seu e-mail"
+        autoComplete="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
+      {erro && <p className="text-[13px] font-semibold text-[var(--mt-defeito)]">{erro}</p>}
+      <button type="submit" disabled={enviando} className="mt-btn mt-btn--primario w-full py-3">
+        {enviando ? "Salvando..." : "Salvar e-mail"}
+      </button>
+    </form>
   );
 }

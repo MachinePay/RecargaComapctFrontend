@@ -1,5 +1,5 @@
-// Entrar / criar conta do motorista (celular + senha). Usado na aba Conta e
-// no "quer entrar?" antes de pagar.
+// Entrar / criar conta do motorista. Entra com celular OU e-mail + senha;
+// a conta nova pede os dois. Usado na aba Conta e antes de pagar.
 import { useState } from "react";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { guardarConta, mascaraCelular } from "./conta";
@@ -12,6 +12,9 @@ export default function FormConta({ onPronto, modoInicial = "entrar" }) {
   const [modo, setModo] = useState(modoInicial);
   const [nome, setNome] = useState("");
   const [celular, setCelular] = useState("");
+  const [email, setEmail] = useState("");
+  // Entrar: um campo so, celular ou e-mail.
+  const [login, setLogin] = useState("");
   const [senha, setSenha] = useState("");
   const [verSenha, setVerSenha] = useState(false);
   const [manter, setManter] = useState(true);
@@ -24,7 +27,9 @@ export default function FormConta({ onPronto, modoInicial = "entrar" }) {
     setEnviando(true);
     setErro("");
     try {
-      const corpo = { telefone: celular, senha, dispositivo: dispositivo(), ...(criando ? { nome } : {}) };
+      const corpo = criando
+        ? { nome, telefone: celular, email, senha, dispositivo: dispositivo() }
+        : { login, senha, dispositivo: dispositivo() };
       const { data } = await apiPublica.post(criando ? "/conta" : "/entrar", corpo);
       guardarConta(data, manter);
       onPronto?.(data.motorista);
@@ -60,16 +65,40 @@ export default function FormConta({ onPronto, modoInicial = "entrar" }) {
       {criando && (
         <input className={campo} placeholder="Seu nome" autoComplete="name" value={nome} onChange={(e) => setNome(e.target.value)} required minLength={2} />
       )}
-      <input
-        className={campo}
-        placeholder="Celular com DDD"
-        type="tel"
-        inputMode="numeric"
-        autoComplete="tel-national"
-        value={celular}
-        onChange={(e) => setCelular(mascaraCelular(e.target.value))}
-        required
-      />
+      {criando ? (
+        <>
+          <input
+            className={campo}
+            placeholder="Celular com DDD"
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel-national"
+            value={celular}
+            onChange={(e) => setCelular(mascaraCelular(e.target.value))}
+            required
+          />
+          <input
+            className={campo}
+            placeholder="Seu e-mail"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </>
+      ) : (
+        <input
+          className={campo}
+          placeholder="Celular ou e-mail"
+          autoComplete="username"
+          autoCapitalize="none"
+          value={login}
+          // Comecou com numero: formata como celular; com letra, e' e-mail.
+          onChange={(e) => setLogin(/^[\d(]/.test(e.target.value) && !e.target.value.includes("@") ? mascaraCelular(e.target.value) : e.target.value)}
+          required
+        />
+      )}
       <div className="relative">
         <input
           className={`${campo} pr-12`}

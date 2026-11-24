@@ -125,6 +125,7 @@ export default function CarregadorDetalhe() {
   const [ocppResposta, setOcppResposta] = useState("");
   const [ocppEnviando, setOcppEnviando] = useState(false);
   const [preco, setPreco] = useState(null);
+  const [metodoSimulado, setMetodoSimulado] = useState("pix");
   const [criandoCaixa, setCriandoCaixa] = useState(false);
   const [valorSimulado, setValorSimulado] = useState("10");
   const [simulacao, setSimulacao] = useState(null);
@@ -350,6 +351,7 @@ export default function CarregadorDetalhe() {
     teto: carregador.kwh_tempo_maximo_min ?? "",
     devolver: carregador.devolver_sobra !== false,
     entrega: carregador.kwh_percentual_entrega ?? "",
+    cartaoMaquina: carregador.kwh_percentual_cartao_maquina ?? "",
   };
   const porKwh = precoForm.modo === "kwh";
   const precoValorNum = Number(String(precoForm.valor).replace(",", "."));
@@ -368,6 +370,7 @@ export default function CarregadorDetalhe() {
           kwh_tempo_maximo_min: precoForm.teto === "" ? null : Number(precoForm.teto),
           devolver_sobra: precoForm.devolver,
           kwh_percentual_entrega: precoForm.entrega === "" ? null : Number(precoForm.entrega),
+          kwh_percentual_cartao_maquina: precoForm.cartaoMaquina === "" ? null : Number(precoForm.cartaoMaquina),
         }
       : { modo_cobranca: "tempo", preco_valor: precoValorNum, preco_minutos: precoMinutosNum };
     try {
@@ -395,7 +398,7 @@ export default function CarregadorDetalhe() {
     event.preventDefault();
     setSimulacao(null);
     try {
-      const { data } = await api.post(`${base}/simular-pagamento`, { valor: Number(String(valorSimulado).replace(",", ".")) });
+      const { data } = await api.post(`${base}/simular-pagamento`, { valor: Number(String(valorSimulado).replace(",", ".")), metodo: metodoSimulado });
       setSimulacao(data);
       carregar();
     } catch {
@@ -748,7 +751,7 @@ export default function CarregadorDetalhe() {
                     />
                   </label>
                   <label className="w-[170px]">
-                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">% do pago que vira energia</span>
+                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">% vira energia (app e Pix)</span>
                     <input
                       className={`${campoClasse} py-2`}
                       type="number"
@@ -759,6 +762,18 @@ export default function CarregadorDetalhe() {
                       onChange={(e) => setPreco({ ...precoForm, entrega: e.target.value })}
                     />
                   </label>
+                  <label className="w-[190px]">
+                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">% vira energia (cartao na maquininha)</span>
+                    <input
+                      className={`${campoClasse} py-2`}
+                      type="number"
+                      min={50}
+                      max={100}
+                      placeholder={String(carregador.kwh_percentual_cartao_padrao ?? 95)}
+                      value={precoForm.cartaoMaquina}
+                      onChange={(e) => setPreco({ ...precoForm, cartaoMaquina: e.target.value })}
+                    />
+                  </label>
                 </div>
                 <label className="flex items-center gap-2 text-sm text-[var(--color-text)]">
                   <input type="checkbox" checked={precoForm.devolver} onChange={(e) => setPreco({ ...precoForm, devolver: e.target.checked })} />
@@ -766,7 +781,9 @@ export default function CarregadorDetalhe() {
                 </label>
                 <p className="text-xs text-[var(--color-text-soft)]">
                   O motorista paga um valor, que vira energia. O carregador para quando entrega os kWh pagos, quando o carro enche ou quando passa o tempo maximo.
-                  Em toda venda (maquininha, app e tablet) so esse percentual vira energia; o resto e' margem caso o carro puxe alem do ponto. No fim cobra o usado pelo preco do kWh e devolve a sobra.
+                  Como fica cada pagamento: no app (Pix ou cartao) o % vira energia e a sobra volta para a carteira do motorista.
+                  Pix na maquininha: o % vira energia e a sobra volta por estorno. Cartao na maquininha: o banco nao devolve parte, entao vira
+                  energia uma parte maior (padrao 95%) e nada volta.
                   O carregador precisa mandar a leitura do medidor (veja em Diagnostico se chega Energy.Active.Import.Register).
                 </p>
               </>
@@ -859,6 +876,15 @@ export default function CarregadorDetalhe() {
 
           {isAdmin ? (
           <form onSubmit={simularPagamento} className="mt-3 flex flex-wrap items-end gap-2 border-t border-[var(--color-border)] pt-3">
+            {carregadorPorKwh ? (
+              <label className="w-[120px]">
+                <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Como</span>
+                <select className={`${campoClasse} py-2`} value={metodoSimulado} onChange={(e) => setMetodoSimulado(e.target.value)}>
+                  <option value="pix">Pix</option>
+                  <option value="cartao">Cartao</option>
+                </select>
+              </label>
+            ) : null}
             <label className="w-[130px]">
               <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Simular pagamento</span>
               <input className={`${campoClasse} py-2`} inputMode="decimal" value={valorSimulado} onChange={(e) => setValorSimulado(e.target.value)} required />

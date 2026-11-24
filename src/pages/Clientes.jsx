@@ -175,9 +175,16 @@ export default function Clientes() {
                 </td>
                 <td className="space-y-1 px-4 py-3">
                   {c.cliente_mercado_pago ? (
-                    <div className={`flex items-center gap-1.5 text-sm font-semibold ${c.tem_token_mp ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
-                      {c.tem_token_mp ? <CircleCheck size={15} /> : <TriangleAlert size={15} />}
-                      Mercado Pago {c.tem_token_mp ? <span className="font-normal text-[var(--color-text-soft)]">· conta {c.mp_user_id}</span> : "· sem token"}
+                    <div className={`flex items-center gap-1.5 text-sm font-semibold ${!c.mp_incompleto ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
+                      {!c.mp_incompleto ? <CircleCheck size={15} /> : <TriangleAlert size={15} />}
+                      Mercado Pago{" "}
+                      {!c.mp_incompleto ? (
+                        <span className="font-normal text-[var(--color-text-soft)]">· conta {c.mp_user_id}</span>
+                      ) : !c.tem_token_mp ? (
+                        "· falta o Access Token"
+                      ) : (
+                        "· falta a Public Key (cartao no app)"
+                      )}
                     </div>
                   ) : null}
                   {c.cliente_sumup ? (
@@ -296,8 +303,15 @@ export default function Clientes() {
             {form.cliente_mercado_pago ? (
               <div className="rounded-[22px] bg-[var(--color-bg-muted)] p-4">
                 <LinkWebhookMp />
+                <p className="mb-3 rounded-[14px] bg-white px-3 py-2 text-xs text-[var(--color-text)]">
+                  <b>Obrigatorio:</b> Access Token e Public Key. Pegue os dois em{" "}
+                  <a className="font-semibold text-[var(--color-primary-strong)] underline" href="https://www.mercadopago.com.br/developers/panel/app" target="_blank" rel="noreferrer">
+                    Mercado Pago Developers
+                  </a>{" "}
+                  &gt; Suas integracoes &gt; sua aplicacao &gt; Credenciais de producao.
+                </p>
                 <Campo
-                  rotulo="Mercado Pago · Access Token de producao"
+                  rotulo="Access Token de producao *"
                   dica={
                     form.id && form.tem_token_mp
                       ? "Ja configurado. Deixe vazio para manter; preencha so para trocar."
@@ -311,22 +325,26 @@ export default function Clientes() {
                     placeholder={form.id && form.tem_token_mp ? "••••••••••••" : "APP_USR-..."}
                     value={form.mp_access_token}
                     onChange={(e) => setForm({ ...form, mp_access_token: e.target.value })}
+                    required={!(form.id && form.tem_token_mp)}
                   />
                 </Campo>
+                <div className="mt-3">
+                  <Campo rotulo="Public Key de producao *" dica="Fica ao lado do Access Token (tambem comeca com APP_USR-). E' com ela que o motorista paga com cartao no app.">
+                    <input
+                      className={`${campoClasse} font-mono`}
+                      autoComplete="off"
+                      placeholder="APP_USR-..."
+                      value={form.mp_public_key}
+                      onChange={(e) => setForm({ ...form, mp_public_key: e.target.value })}
+                      required
+                    />
+                  </Campo>
+                </div>
                 <div className="mt-4 border-t border-[var(--color-border)] pt-3">
                   <div className="text-sm font-semibold text-[var(--color-text)]">
                     Outras credenciais <span className="font-normal text-[var(--color-text-soft)]">(opcional, ficam guardadas para usar depois)</span>
                   </div>
                   <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                    <Campo rotulo="Public Key">
-                      <input
-                        className={`${campoClasse} py-2 font-mono text-sm`}
-                        autoComplete="off"
-                        placeholder="APP_USR-..."
-                        value={form.mp_public_key}
-                        onChange={(e) => setForm({ ...form, mp_public_key: e.target.value })}
-                      />
-                    </Campo>
                     <Campo rotulo="Client ID">
                       <input
                         className={`${campoClasse} py-2 font-mono text-sm`}

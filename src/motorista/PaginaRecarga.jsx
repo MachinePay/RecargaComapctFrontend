@@ -4,7 +4,7 @@
 import { useCallback, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import { BatteryCharging, Check, CircleCheck, CircleX, Clock, Copy, History, LoaderCircle, MapPin, Plug, RotateCcw, Smartphone, Zap } from "lucide-react";
+import { BatteryCharging, Check, CircleCheck, CircleX, Clock, Copy, History, LoaderCircle, MapPin, Plug, RotateCcw, Smartphone, Wallet, Zap } from "lucide-react";
 import usePolling from "../hooks/usePolling";
 import { formatarKwh, formatarRelogio, formatarValor } from "../utils/formatos";
 import { apiPublica, dispositivo, esquecerRecarga, guardarCarregadorDoQr, lembrarRecarga, mensagemErro } from "./servicos";
@@ -110,7 +110,15 @@ export default function PaginaRecarga() {
         {cobranca && (
           <>
             <p className="mt-6 text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--mt-text-soft)]">{cobranca.carregador_nome}</p>
-            {cobranca.status === "aguardando_pagamento" && (
+            {cobranca.status === "aguardando_pagamento" && cobranca.forma === "cartao" && (
+              <Etapa
+                animado
+                icone={<LoaderCircle size={44} className="animate-spin" />}
+                titulo="Confirmando o cartao"
+                texto="O banco esta analisando o pagamento. Assim que aprovar, o carregador libera sozinho. Se recusar, o saldo usado volta para a sua carteira."
+              />
+            )}
+            {cobranca.status === "aguardando_pagamento" && cobranca.forma !== "cartao" && (
               <TelaPix cobranca={cobranca} segundos={restante(cobranca.segundos_para_vencer, recebidoEm, agora)} acao={acao} onSimular={() => executar("simular", `/cobrancas/${cobrancaId}/simular-pagamento`)} onTrocar={trocarTempo} />
             )}
             {cobranca.status === "aprovada" && cobranca.sessao && <TelaSessao cobranca={cobranca} sessao={cobranca.sessao} recebidoEm={recebidoEm} agora={agora} />}
@@ -118,11 +126,13 @@ export default function PaginaRecarga() {
               <Final
                 cor="var(--mt-text-soft)"
                 icone={<Clock size={30} />}
-                titulo={cobranca.status === "expirada" ? "O Pix venceu" : cobranca.status === "recusada" ? "Pagamento recusado" : "Pix cancelado"}
-                texto="Nenhum valor foi cobrado. Se ainda estiver no carregador, gere um novo Pix."
+                titulo={cobranca.status === "expirada" ? "O Pix venceu" : cobranca.status === "recusada" ? "Pagamento recusado" : "Pagamento cancelado"}
+                texto={`${cobranca.motivo_recusa ? `${cobranca.motivo_recusa} ` : ""}Nenhum valor foi cobrado.${
+                  cobranca.valor_carteira > 0 ? ` Os ${formatarValor(cobranca.valor_carteira)} do seu saldo voltaram para a carteira.` : ""
+                } Se ainda estiver no carregador, tente de novo.`}
               >
                 <button type="button" onClick={gerarOutro} className="mt-btn mt-btn--primario w-full py-3.5">
-                  <RotateCcw size={18} /> Gerar novo Pix
+                  <RotateCcw size={18} /> Tentar de novo
                 </button>
               </Final>
             )}
@@ -157,6 +167,11 @@ function TelaPix({ cobranca, segundos, acao, onSimular, onTrocar }) {
       <p className="mt-1 text-[14px] font-semibold text-[var(--mt-text-soft)]">
         {cobranca.kwh != null ? formatarKwh(cobranca.kwh) : duracao(cobranca.minutos * 60)} de recarga · assim que o banco confirmar, o carregador libera sozinho.
       </p>
+      {cobranca.valor_carteira > 0 && (
+        <p className="mt-2 rounded-2xl bg-[var(--mt-accent)]/10 px-3 py-2 text-[13px] font-semibold text-[var(--mt-accent)]">
+          {formatarValor(cobranca.valor_carteira)} ja saiu do seu saldo. O Pix e' so o que falta: {formatarValor(cobranca.valor)}.
+        </p>
+      )}
 
       <div className="mt-5 rounded-[28px] bg-white p-5 text-[#0b1210] shadow-[0_30px_80px_rgba(0,0,0,0.5)]">
         <div className="flex items-center justify-between">
@@ -394,30 +409,38 @@ function TelaSessaoKwh({ cobranca, sessao, recebidoEm, agora }) {
           itens={[
             ["Falta", formatarKwh(sessao.kwh_restantes)],
             ["Energia paga", formatarKwh(pagos)],
-            ["Valor", formatarValor(cobranca.valor)],
+            ["Separado", formatarValor(cobranca.total ?? cobranca.valor)],
           ]}
         />
         <p className="mt-4 text-center text-[12.5px] font-semibold text-[var(--mt-text-faint)]">
-          Pode fechar esta tela. O carregador para sozinho ao entregar a energia paga. Se o carro encher antes, devolvemos o que sobrar.
+          Pode fechar esta tela. O carregador para sozinho ao entregar a energia paga. No fim cobramos so o que o carro usou
+          {cobranca.carteira ? " e a sobra volta para a sua carteira." : " e devolvemos a sobra."}
         </p>
       </section>
     );
   }
   if (sessao.status === "finalizada") {
     const devolvido = cobranca.valor_devolvido || 0;
+    const naCarteira = cobranca.valor_creditado || 0;
     let devolucao = "Calculando o que sobrou...";
-    if (devolvido > 0) devolucao = `Devolvemos ${formatarValor(devolvido)} que voce nao usou. Pelo Pix cai na hora; no cartao, aparece na fatura.`;
-    else if (cobranca.valor_consumido != null) devolucao = "Voce usou toda a energia paga.";
+    if (naCarteira > 0) devolucao = `${formatarValor(naCarteira)} que voce nao usou voltaram para a sua carteira e pagam a proxima recarga.`;
+    else if (devolvido > 0) devolucao = `Devolvemos ${formatarValor(devolvido)} que voce nao usou no seu Pix.`;
+    else if (cobranca.valor_consumido != null) devolucao = "Voce usou toda a energia separada.";
     return (
       <Final cor="var(--mt-accent)" icone={<CircleCheck size={36} />} titulo="Recarga concluida" texto={`${MOTIVOS_MOTORISTA[sessao.motivo_fim] || "Recarga encerrada"}. Ja pode desconectar o cabo.`}>
         <Resumo
           itens={[
             ["Energia", formatarKwh(sessao.energia_kwh)],
-            ["Pago", formatarValor(cobranca.valor)],
+            ["Separado", formatarValor(cobranca.total ?? cobranca.valor)],
             ["Usado", cobranca.valor_consumido != null ? formatarValor(cobranca.valor_consumido) : "..."],
           ]}
         />
         <p className="mt-3 text-center text-[13px] font-semibold text-[var(--mt-text-soft)]">{devolucao}</p>
+        {cobranca.carteira && (
+          <Link to="/app/carteira" className="mt-btn mt-btn--fantasma mt-3 w-full py-3">
+            <Wallet size={17} /> Ver minha carteira
+          </Link>
+        )}
         <AvisoInstalar className="mt-4 text-left" />
         <Link to="/app/historico" className="mt-btn mt-btn--primario mt-4 w-full py-3.5">
           <History size={18} /> Ver meu historico
@@ -434,7 +457,11 @@ function TelaSessaoKwh({ cobranca, sessao, recebidoEm, agora }) {
       icone={<CircleX size={36} />}
       titulo="A recarga nao comecou"
       texto={`${MOTIVOS_MOTORISTA[sessao.motivo_fim] || "Algo deu errado no carregador"}. ${
-        cobranca.estornada ? `Seu Pix de ${formatarValor(cobranca.valor)} foi devolvido.` : "Seu Pix sera devolvido automaticamente."
+        cobranca.carteira
+          ? `Os ${formatarValor(cobranca.total)} voltaram para a sua carteira.`
+          : cobranca.estornada
+            ? `Seu Pix de ${formatarValor(cobranca.valor)} foi devolvido.`
+            : "Seu Pix sera devolvido automaticamente."
       }`}
     >
       <Link to="/app" className="mt-btn mt-btn--primario w-full py-3.5">

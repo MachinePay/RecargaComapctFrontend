@@ -1,7 +1,7 @@
 // API publica do app do motorista, celular anonimo e conta de distancia.
 import axios from "axios";
 import { API_BASE_URL, getApiErrorMessage } from "../api/axios";
-import { contaAtual, sairDaConta } from "./conta";
+import { atualizarMotorista, contaAtual, sairDaConta } from "./conta";
 
 // Sem os interceptors do painel (nada de redirecionar para /login). A conta do
 // motorista e' opcional: logado, o token vai junto.
@@ -15,12 +15,15 @@ apiPublica.interceptors.request.use((config) => {
 
 // Uma vez por abertura do app: login vencido ou conta desativada sai sozinho.
 let contaConferida = false;
-export function conferirConta() {
-  if (contaConferida || !contaAtual()) return;
+export function conferirConta(forcar = false) {
+  if ((contaConferida && !forcar) || !contaAtual()) return;
   contaConferida = true;
-  apiPublica.get("/eu").catch((e) => {
-    if (e.response?.status === 401) sairDaConta();
-  });
+  apiPublica
+    .get("/eu")
+    .then(({ data }) => atualizarMotorista(data)) // saldo da carteira em dia
+    .catch((e) => {
+      if (e.response?.status === 401) sairDaConta();
+    });
 }
 
 export const mensagemErro = (erro) => getApiErrorMessage(erro, "Nao foi possivel falar com o servidor. Tente de novo.");

@@ -51,6 +51,7 @@ export default function TabelaSessoes({ sessoes, mostrarCarregador = true, onEnc
                     <div className="text-xs text-[var(--color-text-soft)]">Usou {formatarValor(s.valor_consumido)}</div>
                   ) : null}
                   {s.valor_devolvido > 0 && !s.estornada ? <Badge tom="ok">Devolveu {formatarValor(s.valor_devolvido)}</Badge> : null}
+                  {s.valor_creditado > 0 && !s.estornada ? <Badge tom="ok">Carteira +{formatarValor(s.valor_creditado)}</Badge> : null}
                   {s.acerto_erro ? (
                     <div className="mt-1 max-w-[220px] text-xs font-semibold text-[var(--color-warning)]">{s.acerto_erro}</div>
                   ) : null}
