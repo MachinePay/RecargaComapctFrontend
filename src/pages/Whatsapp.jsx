@@ -20,6 +20,7 @@ const TIPOS = [
   ["lembrete", "Lembrete"],
   ["voltou", "Voltou"],
   ["resumo", "Resumo diario"],
+  ["estorno", "Estorno recusado"],
 ];
 
 const ESTADOS = {
@@ -299,7 +300,8 @@ export default function Whatsapp() {
               Salvar tempos
             </Button>
             <p className="text-xs text-[var(--color-text-soft)]">
-              Carregador que ja estava offline quando o envio foi ligado nao gera aviso. Os do mesmo cliente que caem juntos vao numa mensagem so.
+              O aviso de sem sinal e o de estorno recusado vao sempre para o dono (telefone do cadastro do cliente). Carregador que ja estava
+              offline quando o envio foi ligado nao gera aviso. Os do mesmo cliente que caem juntos vao numa mensagem so.
             </p>
           </form>
         </Painel>
@@ -340,17 +342,17 @@ export default function Whatsapp() {
                     </td>
                     <td className="px-2 py-2.5 text-center">
                       <div className="flex justify-center">
-                        <Chave ligado={c.ativo} rotulo="Aviso de sem sinal" disabled={ocupadoAqui} onClick={() => salvarCliente(c, { ativo: !c.ativo })} />
+                        <Badge tom={semTelefone ? "aviso" : "ok"}>{semTelefone ? "Sem telefone" : "Sempre"}</Badge>
                       </div>
                     </td>
                     <td className="px-2 py-2.5 text-center">
                       <div className="flex justify-center">
-                        <Chave ligado={c.recebe_lembrete} rotulo="Lembrete" disabled={ocupadoAqui || !c.ativo} onClick={() => salvarCliente(c, { recebe_lembrete: !c.recebe_lembrete })} />
+                        <Chave ligado={c.recebe_lembrete} rotulo="Lembrete" disabled={ocupadoAqui} onClick={() => salvarCliente(c, { recebe_lembrete: !c.recebe_lembrete })} />
                       </div>
                     </td>
                     <td className="px-2 py-2.5 text-center">
                       <div className="flex justify-center">
-                        <Chave ligado={c.recebe_voltou} rotulo="Voltou" disabled={ocupadoAqui || !c.ativo} onClick={() => salvarCliente(c, { recebe_voltou: !c.recebe_voltou })} />
+                        <Chave ligado={c.recebe_voltou} rotulo="Voltou" disabled={ocupadoAqui} onClick={() => salvarCliente(c, { recebe_voltou: !c.recebe_voltou })} />
                       </div>
                     </td>
                     <td className="px-2 py-2.5 text-center">

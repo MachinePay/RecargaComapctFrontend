@@ -80,7 +80,7 @@ export default function TabelaSessoes({ sessoes, mostrarCarregador = true, onEnc
                       Devolver sobra
                     </button>
                   ) : null}
-                  {onEstornar && !ATIVAS.includes(s.status) && s.valor > 0 && !s.estornada && (s.valor_devolvido || 0) < s.valor ? (
+                  {onEstornar && s.estorno_manual !== false && !ATIVAS.includes(s.status) && s.valor > 0 && !s.estornada && (s.valor_devolvido || 0) < s.valor ? (
                     <button
                       type="button"
                       onClick={() => onEstornar(s)}
