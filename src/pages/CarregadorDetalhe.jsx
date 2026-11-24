@@ -352,14 +352,16 @@ export default function CarregadorDetalhe() {
     precoKwh: carregador.preco_kwh ?? "",
     teto: carregador.kwh_tempo_maximo_min ?? "",
     devolver: carregador.devolver_sobra !== false,
-    entrega: carregador.kwh_percentual_entrega ?? "",
-    cartaoMaquina: carregador.kwh_percentual_cartao_maquina ?? "",
+    reservaPix: carregador.kwh_reserva_pix ?? "",
+    reservaCartao: carregador.kwh_reserva_cartao ?? "",
   };
   const porKwh = precoForm.modo === "kwh";
   const precoValorNum = Number(String(precoForm.valor).replace(",", "."));
   const precoMinutosNum = Number(precoForm.minutos);
   const precoKwhNum = Number(String(precoForm.precoKwh).replace(",", "."));
-  const entregaNum = precoForm.entrega === "" ? 100 : Number(precoForm.entrega);
+  const numeroOu = (valor, padrao) => (valor === "" || valor == null ? padrao : Number(String(valor).replace(",", ".")));
+  const reservaPixNum = numeroOu(precoForm.reservaPix, carregador.kwh_reserva_pix_padrao ?? 2);
+  const reservaCartaoNum = numeroOu(precoForm.reservaCartao, carregador.kwh_reserva_cartao_padrao ?? 0.5);
   const carregadorPorKwh = carregador.modo_cobranca === "kwh";
   const temPreco = carregadorPorKwh ? Boolean(carregador.preco_kwh) : Boolean(carregador.preco_valor);
 
@@ -371,8 +373,8 @@ export default function CarregadorDetalhe() {
           preco_kwh: precoKwhNum,
           kwh_tempo_maximo_min: precoForm.teto === "" ? null : Number(precoForm.teto),
           devolver_sobra: precoForm.devolver,
-          kwh_percentual_entrega: precoForm.entrega === "" ? null : Number(precoForm.entrega),
-          kwh_percentual_cartao_maquina: precoForm.cartaoMaquina === "" ? null : Number(precoForm.cartaoMaquina),
+          kwh_reserva_pix: precoForm.reservaPix === "" ? null : reservaPixNum,
+          kwh_reserva_cartao: precoForm.reservaCartao === "" ? null : reservaCartaoNum,
         }
       : { modo_cobranca: "tempo", preco_valor: precoValorNum, preco_minutos: precoMinutosNum };
     try {
@@ -758,27 +760,23 @@ export default function CarregadorDetalhe() {
                     />
                   </label>
                   <label className="w-[170px]">
-                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">% vira energia (Pix, devolve a sobra)</span>
+                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Reserva no Pix (R$)</span>
                     <input
                       className={`${campoClasse} py-2`}
-                      type="number"
-                      min={50}
-                      max={100}
-                      placeholder="100"
-                      value={precoForm.entrega}
-                      onChange={(e) => setPreco({ ...precoForm, entrega: e.target.value })}
+                      inputMode="decimal"
+                      placeholder="2,00"
+                      value={precoForm.reservaPix}
+                      onChange={(e) => setPreco({ ...precoForm, reservaPix: e.target.value })}
                     />
                   </label>
-                  <label className="w-[190px]">
-                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">% vira energia (cartao, sem devolucao)</span>
+                  <label className="w-[170px]">
+                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">Reserva no cartao (R$)</span>
                     <input
                       className={`${campoClasse} py-2`}
-                      type="number"
-                      min={50}
-                      max={100}
-                      placeholder={String(carregador.kwh_percentual_cartao_padrao ?? 95)}
-                      value={precoForm.cartaoMaquina}
-                      onChange={(e) => setPreco({ ...precoForm, cartaoMaquina: e.target.value })}
+                      inputMode="decimal"
+                      placeholder="0,50"
+                      value={precoForm.reservaCartao}
+                      onChange={(e) => setPreco({ ...precoForm, reservaCartao: e.target.value })}
                     />
                   </label>
                 </div>
@@ -788,8 +786,9 @@ export default function CarregadorDetalhe() {
                 </label>
                 <p className="text-xs text-[var(--color-text-soft)]">
                   O motorista paga um valor, que vira energia. O carregador para quando entrega os kWh pagos, quando o carro enche ou quando passa o tempo maximo.
-                  Como fica cada pagamento: Pix (no app ou na maquininha): o % vira energia e a sobra volta por estorno no proprio Pix.
-                  Cartao (no app ou na maquininha): nao tem devolucao, entao vira energia uma parte maior (padrao 95%) e nada volta.
+                  A reserva cobre o carro puxar um pouco alem do ponto. Pix (no app ou na maquininha): reserva de {formatarValor(reservaPixNum)} e a
+                  sobra volta por estorno no proprio Pix. Cartao (no app ou na maquininha): nao tem devolucao, entao a reserva e' de{" "}
+                  {formatarValor(reservaCartaoNum)} e nada volta. Vazio = padrao (Pix R$ 2,00, cartao R$ 0,50).
                   O carregador precisa mandar a leitura do medidor (veja em Diagnostico se chega Energy.Active.Import.Register).
                 </p>
               </>
@@ -813,9 +812,10 @@ export default function CarregadorDetalhe() {
           ) : null}
           {porKwh && precoKwhNum > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {[10, 20, 50, 100].map((v) => (
+              {[10, 20, 50].map((v) => (
                 <span key={v} className="rounded-full bg-[var(--color-bg-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text)]">
-                  {formatarValor(v)} → {formatarKwh(Math.floor(((v * entregaNum) / 100 / precoKwhNum) * 100) / 100)}
+                  {formatarValor(v)} → Pix {formatarKwh(Math.floor((Math.max(0, v - reservaPixNum) / precoKwhNum) * 100) / 100)} · cartao{" "}
+                  {formatarKwh(Math.floor((Math.max(0, v - reservaCartaoNum) / precoKwhNum) * 100) / 100)}
                 </span>
               ))}
             </div>

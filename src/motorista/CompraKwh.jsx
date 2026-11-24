@@ -1,6 +1,6 @@
 // Compra de energia (carregador por kWh). A tela mostra a conta inteira antes
 // de pagar, para Pix e para cartao. Pix: reserva maior e a sobra volta no
-// proprio Pix. Cartao: nao tem devolucao, entao a reserva e' pequena (95%) e
+// proprio Pix. Cartao: nao tem devolucao, entao a reserva e' pequena (R$ 0,50) e
 // nada volta. Conta no app e' opcional.
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -134,14 +134,14 @@ export default function CompraKwh({ c, agora, onAtualizar }) {
           titulo="Pix"
           icone={<QrCode size={18} />}
           conta={pix}
-          texto="Voce paga a energia + uma reserva. No fim cobramos so o que o carro usou e devolvemos a sobra no seu Pix na hora."
+          texto={`Voce paga a energia + ${formatarValor(c.reserva_pix ?? 2)} de reserva. No fim cobramos so o que o carro usou e devolvemos a sobra no seu Pix na hora.`}
         />
         {c.aceita_cartao && (
           <Opcao
             titulo="Cartao"
             icone={<CreditCard size={18} />}
             conta={cartao}
-            texto="O cartao nao tem devolucao, entao a reserva e' bem pequena. O valor pago fica todo para a recarga, mesmo que o carro encha antes."
+            texto={`O cartao nao tem devolucao, entao a reserva e' so de ${formatarValor(c.reserva_cartao ?? 0.5)}. O valor pago fica todo para a recarga, mesmo que o carro encha antes.`}
           />
         )}
         {!previa && (
