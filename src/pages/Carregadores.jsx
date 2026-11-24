@@ -341,7 +341,10 @@ export default function Carregadores() {
             {visiveis.map((c) => (
               <tr key={c.id_hardware} onClick={() => abrir(c)} className="cursor-pointer border-t border-[var(--color-border)] align-top hover:bg-[var(--color-primary-soft)]/50">
                 <td className="px-3 py-3">
-                  <div className="truncate font-bold text-[var(--color-primary-strong)]">{c.nome_local}</div>
+                  <div className="truncate font-bold text-[var(--color-primary-strong)]">
+                    {c.numero ? <span className="mr-1.5 text-[var(--color-text-soft)]">Nº {c.numero}</span> : null}
+                    {c.nome_local}
+                  </div>
                   <div className="truncate font-mono text-[11px] text-[var(--color-text-soft)]">{c.id_hardware}</div>
                   <div className="truncate text-[11px] text-[var(--color-text-soft)]">
                     {[c.vendor, c.modelo, c.firmware_version && `fw ${c.firmware_version}`].filter(Boolean).join(" · ") || "Aguardando apresentacao"}
@@ -427,7 +430,10 @@ export default function Carregadores() {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="truncate font-bold text-[var(--color-text)]">{c.nome_local}</div>
+                <div className="truncate font-bold text-[var(--color-text)]">
+                  {c.numero ? <span className="mr-1.5 text-[var(--color-text-soft)]">Nº {c.numero}</span> : null}
+                  {c.nome_local}
+                </div>
                 <div className="truncate font-mono text-[11px] text-[var(--color-text-soft)]">{c.id_hardware}</div>
               </div>
               <StatusCarregador status={statusCarregador(c)} />

@@ -1,8 +1,8 @@
 // Tela principal do motorista: mapa com todos os carregadores, status ao vivo,
 // quando cada um libera, distancia/tempo de carro e o mais perto livre.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { BatteryCharging, ChevronRight, Clock, Crosshair, LoaderCircle, LocateFixed, MapPin, Navigation, QrCode, Route, X, Zap } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { BatteryCharging, ChevronRight, Clock, Crosshair, Hash, LoaderCircle, LocateFixed, MapPin, Navigation, QrCode, Route, X, Zap } from "lucide-react";
 import usePolling from "../hooks/usePolling";
 import AvisoInstalar from "./AvisoInstalar";
 import MapaEscolhido from "./MapaEscolhido";
@@ -10,6 +10,7 @@ import {
   apiPublica,
   dispositivo,
   esquecerRecarga,
+  guardarCarregadorDoQr,
   lembrarLocalizacao,
   linkGoogleMaps,
   linkWaze,
@@ -272,6 +273,8 @@ export default function PaginaMapa() {
 
               <AvisoLocalizacao estado={estadoLocal} onLigar={ligarLocalizacao} />
 
+              <DigitarNumero />
+
               <AvisoInstalar className="mt-3" />
 
               {maisPerto && filtro === "todos" && <CartaoMaisPerto c={maisPerto} onAbrir={() => selecionar(maisPerto.id)} />}
@@ -301,6 +304,54 @@ export default function PaginaMapa() {
 
       <NavMotorista />
     </div>
+  );
+}
+
+// Motorista no carregador sem ler o QR: digita o numero do adesivo.
+function DigitarNumero() {
+  const navigate = useNavigate();
+  const [numero, setNumero] = useState("");
+  const [buscando, setBuscando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const ir = async (e) => {
+    e.preventDefault();
+    const n = numero.replace(/\D/g, "");
+    if (!n) return;
+    setBuscando(true);
+    setErro("");
+    try {
+      const { data } = await apiPublica.get(`/carregadores/numero/${n}`);
+      guardarCarregadorDoQr(data.id);
+      navigate("/app/carregar");
+    } catch (falha) {
+      setErro(mensagemErro(falha));
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  return (
+    <form onSubmit={ir} className="mt-3 rounded-[20px] border border-[var(--mt-border)] bg-[var(--mt-surface-soft)] p-3">
+      <p className="flex items-center gap-2 text-[13.5px] font-extrabold">
+        <Hash size={16} className="text-[var(--mt-accent)]" /> Ja esta no carregador?
+      </p>
+      <p className="mt-0.5 text-[12px] font-semibold text-[var(--mt-text-soft)]">Digite o numero do adesivo e pague sem ler o QR code.</p>
+      <div className="mt-2 flex gap-2">
+        <input
+          className="min-w-0 flex-1 rounded-2xl border border-[var(--mt-border-strong)] bg-[var(--mt-bg)] px-4 py-2.5 text-[16px] font-bold outline-none focus:border-[var(--mt-accent)]"
+          inputMode="numeric"
+          placeholder="Ex.: 12"
+          value={numero}
+          onChange={(e) => setNumero(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          aria-label="Numero do carregador"
+        />
+        <button type="submit" disabled={!numero || buscando} className="mt-btn mt-btn--primario px-5 py-2.5 text-[15px]">
+          {buscando ? <LoaderCircle size={17} className="animate-spin" /> : "Ir"}
+        </button>
+      </div>
+      {erro && <p className="mt-2 text-[12.5px] font-semibold text-[var(--mt-defeito)]">{erro}</p>}
+    </form>
   );
 }
 
@@ -366,7 +417,10 @@ function LinhaCarregador({ c, calculando, onAbrir }) {
           {c.situacao === "ocupado" ? <BatteryCharging size={22} /> : <Zap size={22} fill={c.situacao === "livre" ? "currentColor" : "none"} />}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-extrabold tracking-[-0.01em]">{c.nome}</span>
+          <span className="block truncate text-[15px] font-extrabold tracking-[-0.01em]">
+            {c.numero ? <span className="mr-1.5 text-[var(--mt-text-soft)]">Nº {c.numero}</span> : null}
+            {c.nome}
+          </span>
           <span className="mt-0.5 block truncate text-[12.5px] font-bold" style={{ color: cor }}>
             {textoSituacao(c, c.segundos)}
           </span>
@@ -401,12 +455,22 @@ function LinhaCarregador({ c, calculando, onAbrir }) {
 
 function DetalheCarregador({ c, agora, maisPerto, onFechar }) {
   const cor = SITUACOES[c.situacao]?.cor;
+  const navigate = useNavigate();
+  const carregarAqui = () => {
+    guardarCarregadorDoQr(c.id);
+    navigate("/app/carregar");
+  };
   return (
     <div className="mt-entrar pt-1">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <SeloSituacao situacao={c.situacao} />
+            {c.numero ? (
+              <span className="mt-chip text-[var(--mt-text)]">
+                <Hash size={12} /> Carregador {c.numero}
+              </span>
+            ) : null}
             {maisPerto && (
               <span className="mt-chip text-[var(--mt-accent)]">
                 <Zap size={12} fill="currentColor" /> Mais perto
@@ -448,11 +512,17 @@ function DetalheCarregador({ c, agora, maisPerto, onFechar }) {
             : "Tem um carro conectado. A previsao aparece assim que a recarga comecar."}
         </p>
       )}
-      {c.situacao === "livre" && (
-        <p className="mt-3 flex items-start gap-2 rounded-2xl bg-[var(--mt-accent)]/10 px-3 py-2.5 text-[13px] font-semibold text-[var(--mt-accent)]">
-          <QrCode size={16} className="mt-0.5 shrink-0" />
-          Chegando la, leia o QR code do carregador para escolher o tempo e pagar com Pix.
-        </p>
+      {c.situacao === "livre" && c.aceita_pix && (
+        <>
+          <button type="button" onClick={carregarAqui} className="mt-btn mt-btn--primario mt-3 w-full py-3.5 text-[16px]">
+            <Zap size={18} fill="currentColor" /> Carregar aqui
+          </button>
+          <p className="mt-2 flex items-start gap-2 text-[12.5px] font-semibold text-[var(--mt-text-soft)]">
+            <QrCode size={15} className="mt-0.5 shrink-0 text-[var(--mt-accent)]" />
+            Ja esta no carregador? Confira se o adesivo mostra o numero {c.numero ? <b className="text-[var(--mt-text)]">{c.numero}</b> : "dele"} e
+            toque em Carregar aqui (ou leia o QR code).
+          </p>
+        </>
       )}
 
       {Number.isFinite(c.latitude) ? (

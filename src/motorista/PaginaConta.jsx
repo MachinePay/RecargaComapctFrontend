@@ -12,8 +12,7 @@ import { Logo, NavMotorista } from "./ui";
 const VANTAGENS = [
   { icone: History, texto: "Seu historico de recargas em qualquer celular" },
   { icone: Smartphone, texto: "Trocou de celular? Entre e esta tudo la" },
-  { icone: Wallet, texto: "Carteira: a sobra das recargas por kWh fica guardada para a proxima" },
-  { icone: ShieldCheck, texto: "Nos carregadores por tempo, da para pagar sem conta" },
+  { icone: ShieldCheck, texto: "Opcional: da para pagar sem conta" },
 ];
 
 export default function PaginaConta() {
@@ -46,19 +45,21 @@ export default function PaginaConta() {
 
             {!motorista.email && <CadastrarEmail />}
 
+            {motorista.saldo > 0 && (
             <Link to="/app/carteira" className="mt-card mt-6 flex items-center gap-3 p-4">
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--mt-accent)]/15 text-[var(--mt-accent)]">
                 <Wallet size={20} />
               </span>
               <span className="flex-1">
-                <span className="block text-[15px] font-extrabold">Minha carteira</span>
+                <span className="block text-[15px] font-extrabold">Saldo antigo: {formatarValor(motorista.saldo)}</span>
                 <span className="block text-[12.5px] font-semibold text-[var(--mt-text-soft)]">
-                  Saldo {formatarValor(motorista.saldo || 0)} · a sobra das recargas fica aqui
+                  A carteira foi desativada. Fale com o atendimento para receber de volta.
                 </span>
               </span>
             </Link>
+            )}
 
-            <Link to="/app/historico" className="mt-card mt-3 flex items-center gap-3 p-4">
+            <Link to="/app/historico" className="mt-card mt-6 flex items-center gap-3 p-4">
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--mt-accent)]/15 text-[var(--mt-accent)]">
                 <History size={20} />
               </span>

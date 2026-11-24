@@ -124,6 +124,11 @@ export default function PaginaCarregar() {
             <section className="mt-entrar mt-6">
               <SeloSituacao situacao={c.situacao}>{textoSituacao(c, restante(c.segundos_para_liberar, recebidoEm, agora))}</SeloSituacao>
               <h1 className="mt-3 text-[30px] font-extrabold leading-[1.05] tracking-[-0.04em]">{c.nome}</h1>
+              {c.numero ? (
+                <p className="mt-1.5 inline-flex rounded-full border border-[var(--mt-border)] px-3 py-1 text-[13px] font-extrabold">
+                  Carregador nº {c.numero} · confira no adesivo
+                </p>
+              ) : null}
               {c.endereco && <p className="mt-1.5 text-[13px] font-semibold text-[var(--mt-text-soft)]">{c.endereco}</p>}
             </section>
 

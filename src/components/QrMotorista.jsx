@@ -15,9 +15,9 @@ function carregarImagem(src) {
   });
 }
 
-// Cartaz pronto para imprimir: titulo, QR grande, o nome do carregador e,
-// no rodape, a logo com o nome CompactRecarga.
-function desenharCartaz(qr, nome, logo) {
+// Cartaz pronto para imprimir: titulo, QR grande, o numero e o nome do
+// carregador e, no rodape, a logo com o nome CompactRecarga.
+function desenharCartaz(qr, nome, logo, numero) {
   const largura = 1200;
   const altura = 1800;
   const canvas = document.createElement("canvas");
@@ -32,7 +32,7 @@ function desenharCartaz(qr, nome, logo) {
   ctx.fillText("⚡ RECARREGUE AQUI", largura / 2, 150);
   ctx.fillStyle = "#eaf6ef";
   ctx.font = "700 40px 'Plus Jakarta Sans', sans-serif";
-  ctx.fillText("Aponte a camera, escolha o tempo e pague com Pix", largura / 2, 225);
+  ctx.fillText("Aponte a camera ou digite o numero no app", largura / 2, 225);
   const lado = 860;
   const x = (largura - lado) / 2;
   ctx.fillStyle = "#ffffff";
@@ -43,10 +43,11 @@ function desenharCartaz(qr, nome, logo) {
   ctx.drawImage(qr, x, 350, lado, lado);
   ctx.fillStyle = "#eaf6ef";
   ctx.font = "800 64px 'Plus Jakarta Sans', sans-serif";
-  ctx.fillText(nome.length > 28 ? `${nome.slice(0, 27)}…` : nome, largura / 2, 1400);
+  const titulo = numero ? `Nº ${numero} · ${nome}` : nome;
+  ctx.fillText(titulo.length > 28 ? `${titulo.slice(0, 27)}…` : titulo, largura / 2, 1400);
   ctx.fillStyle = "#93a89d";
   ctx.font = "600 34px 'Plus Jakarta Sans', sans-serif";
-  ctx.fillText("Veja todos os carregadores no mapa do app", largura / 2, 1470);
+  ctx.fillText(numero ? `Sem camera? No app, digite o numero ${numero}` : "Veja todos os carregadores no mapa do app", largura / 2, 1470);
 
   // Rodape: faixa branca (a logo tem fundo branco) com simbolo + nome. A
   // largura sai do texto medido, para o nome nunca passar da borda.
@@ -90,7 +91,7 @@ export default function QrMotorista({ carregador }) {
   const baixar = async () => {
     // Sem a logo (falhou ao carregar) o cartaz sai so com o nome.
     const logo = await carregarImagem("/logo-simbolo.png").catch(() => null);
-    const canvas = desenharCartaz(qrRef.current, carregador.nome_local, logo);
+    const canvas = desenharCartaz(qrRef.current, carregador.nome_local, logo, carregador.numero);
     const a = document.createElement("a");
     a.href = canvas.toDataURL("image/png");
     a.download = `qr-${carregador.id_hardware}.png`;

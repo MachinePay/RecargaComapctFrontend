@@ -425,6 +425,8 @@ function TelaSessaoKwh({ cobranca, sessao, recebidoEm, agora }) {
     let devolucao = "Calculando o que sobrou...";
     if (naCarteira > 0) devolucao = `${formatarValor(naCarteira)} que voce nao usou voltaram para a sua carteira e pagam a proxima recarga.`;
     else if (devolvido > 0) devolucao = `Devolvemos ${formatarValor(devolvido)} que voce nao usou no seu Pix.`;
+    else if (cobranca.valor_consumido != null && cobranca.forma === "cartao")
+      devolucao = "Pagamento no cartao: o valor pago fica todo para a recarga (cartao nao tem devolucao).";
     else if (cobranca.valor_consumido != null) devolucao = "Voce usou toda a energia separada.";
     return (
       <Final cor="var(--mt-accent)" icone={<CircleCheck size={36} />} titulo="Recarga concluida" texto={`${MOTIVOS_MOTORISTA[sessao.motivo_fim] || "Recarga encerrada"}. Ja pode desconectar o cabo.`}>

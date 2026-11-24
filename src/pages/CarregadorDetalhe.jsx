@@ -233,6 +233,7 @@ export default function CarregadorDetalhe() {
   const abrirEdicao = async () => {
     setEdicao({
       nome_local: carregador.nome_local,
+      numero: carregador.numero ?? "",
       connector_id: carregador.connector_id,
       ativo: carregador.ativo,
       cliente_id: carregador.cliente_id ?? "",
@@ -307,6 +308,7 @@ export default function CarregadorDetalhe() {
     try {
       const { data } = await api.patch(base, {
         nome_local: edicao.nome_local,
+        ...(edicao.numero ? { numero: Number(edicao.numero) } : {}),
         connector_id: Number(edicao.connector_id) || 1,
         ativo: edicao.ativo,
         cliente_id: edicao.cliente_id ? Number(edicao.cliente_id) : null,
@@ -490,6 +492,11 @@ export default function CarregadorDetalhe() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
+            {carregador.numero ? (
+              <span className="rounded-full bg-[var(--color-text)] px-3 py-1 text-sm font-extrabold text-white" title="Numero do adesivo">
+                Nº {carregador.numero}
+              </span>
+            ) : null}
             <h1 className="text-3xl font-extrabold tracking-[-0.04em] text-[var(--color-text)]">{carregador.nome_local}</h1>
             <StatusCarregador status={status} />
             {!carregador.ativo ? <Badge tom="erro">Inativo</Badge> : null}
@@ -751,7 +758,7 @@ export default function CarregadorDetalhe() {
                     />
                   </label>
                   <label className="w-[170px]">
-                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">% vira energia (app e Pix)</span>
+                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">% vira energia (Pix, devolve a sobra)</span>
                     <input
                       className={`${campoClasse} py-2`}
                       type="number"
@@ -763,7 +770,7 @@ export default function CarregadorDetalhe() {
                     />
                   </label>
                   <label className="w-[190px]">
-                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">% vira energia (cartao na maquininha)</span>
+                    <span className="mb-1 block text-xs font-semibold text-[var(--color-text-soft)]">% vira energia (cartao, sem devolucao)</span>
                     <input
                       className={`${campoClasse} py-2`}
                       type="number"
@@ -781,9 +788,8 @@ export default function CarregadorDetalhe() {
                 </label>
                 <p className="text-xs text-[var(--color-text-soft)]">
                   O motorista paga um valor, que vira energia. O carregador para quando entrega os kWh pagos, quando o carro enche ou quando passa o tempo maximo.
-                  Como fica cada pagamento: no app (Pix ou cartao) o % vira energia e a sobra volta para a carteira do motorista.
-                  Pix na maquininha: o % vira energia e a sobra volta por estorno. Cartao na maquininha: o banco nao devolve parte, entao vira
-                  energia uma parte maior (padrao 95%) e nada volta.
+                  Como fica cada pagamento: Pix (no app ou na maquininha): o % vira energia e a sobra volta por estorno no proprio Pix.
+                  Cartao (no app ou na maquininha): nao tem devolucao, entao vira energia uma parte maior (padrao 95%) e nada volta.
                   O carregador precisa mandar a leitura do medidor (veja em Diagnostico se chega Energy.Active.Import.Register).
                 </p>
               </>
@@ -1013,6 +1019,17 @@ export default function CarregadorDetalhe() {
             <label className="block">
               <span className="mb-2 block text-sm font-semibold">Nome do local</span>
               <input className={campoClasse} value={edicao.nome_local} onChange={(e) => setEdicao({ ...edicao, nome_local: e.target.value })} required />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold">Numero do adesivo</span>
+              <input
+                className={campoClasse}
+                type="number"
+                min={1}
+                value={edicao.numero}
+                onChange={(e) => setEdicao({ ...edicao, numero: e.target.value })}
+              />
+              <span className="mt-1 block text-xs text-[var(--color-text-soft)]">O motorista digita esse numero no app. Cole o mesmo numero no carregador.</span>
             </label>
             <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
               <label className="block">

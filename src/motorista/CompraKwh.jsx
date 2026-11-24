@@ -1,19 +1,16 @@
-// Compra de energia (carregador por kWh) com a carteira do motorista.
-// A tela mostra a conta inteira antes de pagar: energia, reserva, saldo
-// usado e o que falta pagar. No fim da recarga cobramos so o usado e a sobra
-// volta para a carteira.
+// Compra de energia (carregador por kWh). A tela mostra a conta inteira antes
+// de pagar, para Pix e para cartao. Pix: reserva maior e a sobra volta no
+// proprio Pix. Cartao: nao tem devolucao, entao a reserva e' pequena (95%) e
+// nada volta. Conta no app e' opcional.
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CreditCard, Info, LoaderCircle, QrCode, Wallet, Zap } from "lucide-react";
+import { CreditCard, Info, LoaderCircle, QrCode } from "lucide-react";
 import { formatarValor } from "../utils/formatos";
 import { apiPublica, dispositivo, lembrarRecarga, mensagemErro } from "./servicos";
 import { duracao, formatarKwhCurto, horaDaqui } from "./regras";
-import { useConta } from "./conta";
-import FormConta from "./FormConta";
 import PagarCartao from "./PagarCartao";
 
 export default function CompraKwh({ c, agora, onAtualizar }) {
-  const conta = useConta();
   const navigate = useNavigate();
   const [kwh, setKwh] = useState(() => Math.min(Math.max(20, c.kwh_min), c.kwh_max));
   const [previa, setPrevia] = useState(null);
@@ -21,9 +18,8 @@ export default function CompraKwh({ c, agora, onAtualizar }) {
   const [enviando, setEnviando] = useState("");
   const [cartaoAberto, setCartaoAberto] = useState(false);
 
-  // A conta muda com os kWh e com o saldo: pergunta ao servidor (ele refaz igual na hora de pagar).
+  // A conta muda com os kWh: pergunta ao servidor (ele refaz igual na hora de pagar).
   useEffect(() => {
-    if (!conta) return undefined;
     let ativo = true;
     const timer = window.setTimeout(async () => {
       try {
@@ -37,7 +33,7 @@ export default function CompraKwh({ c, agora, onAtualizar }) {
       ativo = false;
       window.clearTimeout(timer);
     };
-  }, [c.id, kwh, conta]);
+  }, [c.id, kwh]);
 
   const pagar = useCallback(
     async (metodo, cartao) => {
@@ -46,7 +42,7 @@ export default function CompraKwh({ c, agora, onAtualizar }) {
         kwh,
         metodo,
         dispositivo: dispositivo(),
-        a_pagar: previa?.a_pagar,
+        a_pagar: previa?.[metodo]?.a_pagar,
         cartao,
       });
       lembrarRecarga(data.id);
@@ -79,29 +75,12 @@ export default function CompraKwh({ c, agora, onAtualizar }) {
     [pagar],
   );
 
-  if (!conta) {
-    return (
-      <section className="mt-entrar mt-6 rounded-[28px] border border-[var(--mt-border)] bg-[var(--mt-surface-soft)] p-5">
-        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--mt-accent)]/15 text-[var(--mt-accent)]">
-          <Wallet size={22} />
-        </span>
-        <h2 className="mt-3 text-[22px] font-extrabold leading-tight tracking-[-0.03em]">Entre para recarregar aqui</h2>
-        <p className="mt-1.5 text-[13.5px] font-semibold text-[var(--mt-text-soft)]">
-          Este carregador cobra pela energia que o carro usa. Voce paga antes, cobramos so o que usar, e o que sobrar fica na sua carteira
-          para a proxima recarga. Por isso precisa de uma conta (so celular e senha).
-        </p>
-        <div className="mt-5">
-          <FormConta />
-        </div>
-      </section>
-    );
-  }
-
   const porcentagem = ((kwh - c.kwh_min) / Math.max(1, c.kwh_max - c.kwh_min)) * 100;
   const potenciaKw = c.potencia_media_kw || null;
   const segundosPrevistos = potenciaKw ? (kwh / potenciaKw) * 3600 : null;
-  const aPagar = previa?.a_pagar ?? null;
   const pronto = previa && previa.kwh === kwh;
+  const pix = previa?.pix;
+  const cartao = previa?.cartao;
 
   return (
     <>
@@ -146,33 +125,30 @@ export default function CompraKwh({ c, agora, onAtualizar }) {
         </div>
       </section>
 
-      {/* A conta, linha por linha, para nao ter surpresa. */}
-      <section className="mt-entrar mt-4 rounded-[24px] border border-[var(--mt-border)] bg-[var(--mt-surface-soft)] p-4">
-        <p className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-[var(--mt-text-soft)]">Sua conta</p>
-        {previa ? (
-          <dl className="mt-3 space-y-2 text-[14px] font-semibold">
-            <Linha rotulo={`Energia (${formatarKwhCurto(previa.kwh)})`} valor={formatarValor(previa.custo_energia)} />
-            {previa.reserva > 0 && <Linha rotulo="Reserva de seguranca" valor={formatarValor(previa.reserva)} fraco />}
-            <Linha rotulo="Total separado para a recarga" valor={formatarValor(previa.total)} forte />
-            {previa.saldo_usado > 0 && <Linha rotulo="Saldo da carteira usado" valor={`- ${formatarValor(previa.saldo_usado)}`} verde />}
-            <div className="my-1 border-t border-[var(--mt-border)]" />
-            <Linha rotulo="A pagar agora" valor={formatarValor(previa.a_pagar)} forte grande />
-          </dl>
-        ) : (
-          <p className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-[var(--mt-text-soft)]">
+      {/* A conta de cada forma de pagamento, para nao ter surpresa. */}
+      <section className="mt-entrar mt-4 space-y-3">
+        <p className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-[var(--mt-text-soft)]">
+          Energia: {previa ? formatarValor(previa.custo_energia) : "..."} ({formatarKwhCurto(kwh)} a {formatarValor(c.preco_kwh)})
+        </p>
+        <Opcao
+          titulo="Pix"
+          icone={<QrCode size={18} />}
+          conta={pix}
+          texto="Voce paga a energia + uma reserva. No fim cobramos so o que o carro usou e devolvemos a sobra no seu Pix na hora."
+        />
+        {c.aceita_cartao && (
+          <Opcao
+            titulo="Cartao"
+            icone={<CreditCard size={18} />}
+            conta={cartao}
+            texto="O cartao nao tem devolucao, entao a reserva e' bem pequena. O valor pago fica todo para a recarga, mesmo que o carro encha antes."
+          />
+        )}
+        {!previa && (
+          <p className="flex items-center gap-2 text-[13px] font-semibold text-[var(--mt-text-soft)]">
             <LoaderCircle size={15} className="animate-spin" /> Calculando...
           </p>
         )}
-        <p className="mt-3 flex gap-2 rounded-2xl bg-black/20 px-3 py-2.5 text-[12.5px] font-semibold leading-snug text-[var(--mt-text-soft)]">
-          <Info size={16} className="mt-0.5 shrink-0 text-[var(--mt-accent)]" />
-          <span>
-            No fim da recarga cobramos so a energia que o carro usou, a {formatarValor(c.preco_kwh)} o kWh. O que sobrar volta para a sua
-            carteira na hora e paga a proxima recarga. A reserva cobre o carro puxar um pouco a mais.
-          </span>
-        </p>
-        <p className="mt-2 flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--mt-text-soft)]">
-          <Wallet size={14} className="text-[var(--mt-accent)]" /> Saldo na carteira: {formatarValor(previa?.saldo ?? conta.motorista.saldo ?? 0)}
-        </p>
       </section>
 
       {erro && (
@@ -182,20 +158,15 @@ export default function CompraKwh({ c, agora, onAtualizar }) {
       )}
 
       <div className="sticky bottom-0 mt-auto space-y-2.5 pt-5" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        {pronto && aPagar === 0 ? (
-          <button type="button" onClick={() => pagarCom("saldo")} disabled={Boolean(enviando)} className="mt-btn mt-btn--primario w-full py-4 text-[17px]">
-            {enviando ? <LoaderCircle size={20} className="animate-spin" /> : <Zap size={20} fill="currentColor" />}
-            Carregar usando {formatarValor(previa.saldo_usado)} do saldo
-          </button>
-        ) : (
+        {(
           <>
             <button type="button" onClick={() => pagarCom("pix")} disabled={!pronto || Boolean(enviando)} className="mt-btn mt-btn--primario w-full py-4 text-[17px]">
               {enviando === "pix" ? <LoaderCircle size={20} className="animate-spin" /> : <QrCode size={20} />}
-              {pronto ? `Pagar ${formatarValor(aPagar)} com Pix` : "Calculando..."}
+              {pronto ? `Pagar ${formatarValor(pix.a_pagar)} com Pix` : "Calculando..."}
             </button>
             {c.aceita_cartao && (
               <button type="button" onClick={() => setCartaoAberto(true)} disabled={!pronto || Boolean(enviando)} className="mt-btn mt-btn--fantasma w-full py-3.5 text-[15px]">
-                <CreditCard size={18} /> {pronto ? `Pagar ${formatarValor(aPagar)} com cartao` : "Calculando..."}
+                <CreditCard size={18} /> {pronto ? `Pagar ${formatarValor(cartao.a_pagar)} com cartao` : "Calculando..."}
               </button>
             )}
           </>
@@ -206,12 +177,36 @@ export default function CompraKwh({ c, agora, onAtualizar }) {
         <PagarCartao
           publicKey={c.mp_public_key}
           simulado={!c.mp_public_key}
-          valor={aPagar}
+          valor={cartao.a_pagar}
           onPagar={pagarCartao}
           onFechar={() => setCartaoAberto(false)}
         />
       )}
     </>
+  );
+}
+
+function Opcao({ titulo, icone, conta, texto }) {
+  return (
+    <div className="rounded-[22px] border border-[var(--mt-border)] bg-[var(--mt-surface-soft)] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2 text-[15px] font-extrabold">
+          <span className="text-[var(--mt-accent)]">{icone}</span> {titulo}
+        </span>
+        <span className="mt-num text-[22px] font-bold">{conta ? formatarValor(conta.a_pagar) : "..."}</span>
+      </div>
+      {conta && (
+        <dl className="mt-2 space-y-1 text-[13px] font-semibold">
+          <Linha rotulo="Energia" valor={formatarValor(conta.custo_energia)} />
+          <Linha rotulo="Reserva" valor={formatarValor(conta.reserva)} fraco />
+          <Linha rotulo={conta.devolve_sobra ? "Sobra" : "Devolucao"} valor={conta.devolve_sobra ? "volta no Pix" : "nao tem"} verde={conta.devolve_sobra} fraco={!conta.devolve_sobra} />
+        </dl>
+      )}
+      <p className="mt-2 flex gap-2 text-[12px] font-semibold leading-snug text-[var(--mt-text-soft)]">
+        <Info size={14} className="mt-0.5 shrink-0 text-[var(--mt-accent)]" />
+        <span>{texto}</span>
+      </p>
+    </div>
   );
 }
 
